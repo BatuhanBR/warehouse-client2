@@ -9,6 +9,9 @@ import Users from './pages/Users';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import ForgotPassword from './pages/ForgotPassword';
+import Welcome from './pages/Welcome';
+import Contact from './pages/Contact';
+import About from './pages/About';
 
 function App() {
   return (
@@ -22,10 +25,13 @@ function App() {
         {/* Protected Routes */}
         <Route element={<PrivateRoute />}>
           <Route element={<Layout />}>
+            <Route path="/welcome" element={<Welcome />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/stock-movements" element={<StockMovements />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
           </Route>
         </Route>
       </Routes>
