@@ -31,10 +31,16 @@ const Products = () => {
   });
   const [selectedProducts, setSelectedProducts] = useState([]);
 
-  // Örnek veri - daha sonra API'den gelecek
+  // Genişletilmiş örnek veri
   const dummyProducts = [
-    { id: 1, name: 'Ürün 1', sku: 'PRD001', category: 'Elektronik', stock: 50, minStock: 10, price: 1000, description: 'Ürün açıklaması 1' },
-    { id: 2, name: 'Ürün 2', sku: 'PRD002', category: 'Giyim', stock: 5, minStock: 20, price: 150, description: 'Ürün açıklaması 2' },
+    { id: 1, name: 'iPhone 14 Pro', sku: 'PHN001', category: 'Elektronik', stock: 50, minStock: 10, price: 42999, description: '256GB Uzay Siyahı' },
+    { id: 2, name: 'Samsung Galaxy S23', sku: 'PHN002', category: 'Elektronik', stock: 35, minStock: 8, price: 34999, description: '256GB Yeşil' },
+    { id: 3, name: 'Nike Air Max', sku: 'SHO001', category: 'Giyim', stock: 5, minStock: 20, price: 4599, description: '42 Numara Siyah' },
+    { id: 4, name: 'MacBook Pro M2', sku: 'LPT001', category: 'Elektronik', stock: 15, minStock: 5, price: 52999, description: '512GB Gümüş' },
+    { id: 5, name: 'Adidas Superstar', sku: 'SHO002', category: 'Giyim', stock: 25, minStock: 15, price: 3299, description: '41 Numara Beyaz' },
+    { id: 6, name: 'iPad Air', sku: 'TBL001', category: 'Elektronik', stock: 42, minStock: 12, price: 18999, description: '64GB Uzay Grisi' },
+    { id: 7, name: 'Levi\'s 501', sku: 'JNS001', category: 'Giyim', stock: 3, minStock: 10, price: 1299, description: '32-32 Mavi' },
+    { id: 8, name: 'Sony WH-1000XM4', sku: 'HDN001', category: 'Elektronik', stock: 28, minStock: 8, price: 7899, description: 'Siyah Kablosuz Kulaklık' }
   ];
 
   useEffect(() => {
@@ -78,8 +84,17 @@ const Products = () => {
   };
 
   const confirmDelete = () => {
-    setProducts(products.filter(p => p.id !== deleteModal.productId));
+    // Tekli silme
+    if (typeof deleteModal.productId === 'number') {
+      setProducts(products.filter(p => p.id !== deleteModal.productId));
+    } 
+    // Çoklu silme
+    else if (Array.isArray(deleteModal.productId)) {
+      setProducts(products.filter(p => !deleteModal.productId.includes(p.id)));
+    }
+    
     setDeleteModal({ isOpen: false, productId: null, productName: '' });
+    setSelectedProducts([]); // Seçimleri temizle
   };
 
   // Tüm ürünleri seç/kaldır
@@ -119,11 +134,87 @@ const Products = () => {
     setSelectedProducts([]);
   };
 
+  // Kategori dropdown'ını geliştirip daha fazla kategori ekleyelim
+  const categories = [
+    { id: 'electronics', name: 'Elektronik' },
+    { id: 'clothing', name: 'Giyim' },
+    { id: 'accessories', name: 'Aksesuarlar' },
+    { id: 'sports', name: 'Spor' },
+    { id: 'home', name: 'Ev & Yaşam' }
+  ];
+
+  // Kategori değiştirme butonunu ve dropdown'ı güncelleyelim
+  const CategoryDropdown = () => (
+    <div className="relative group">
+      <button
+        className="flex items-center px-3 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
+      >
+        <MdSwapVert className="w-5 h-5 mr-1" />
+        Kategori Değiştir
+      </button>
+      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+        <div className="py-1">
+          {categories.map(category => (
+            <button
+              key={category.id}
+              onClick={() => handleBulkCategoryUpdate(category.name)}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Filtrelenmiş ürünleri hesapla
+  const filteredProducts = products.filter(product => {
+    // Arama filtresi
+    const searchFilter = filters.search.toLowerCase();
+    const matchesSearch = 
+      product.name.toLowerCase().includes(searchFilter) ||
+      product.sku.toLowerCase().includes(searchFilter) ||
+      product.description.toLowerCase().includes(searchFilter);
+
+    // Kategori filtresi
+    const matchesCategory = 
+      filters.category === 'all' || 
+      product.category.toLowerCase() === filters.category.toLowerCase();
+
+    // Stok durumu filtresi
+    let matchesStock = true;
+    switch (filters.stockStatus) {
+      case 'low':
+        matchesStock = product.stock <= product.minStock;
+        break;
+      case 'out':
+        matchesStock = product.stock === 0;
+        break;
+      case 'normal':
+        matchesStock = product.stock > product.minStock;
+        break;
+      default:
+        matchesStock = true;
+    }
+
+    return matchesSearch && matchesCategory && matchesStock;
+  });
+
+  // Filtre seçeneklerini products'dan dinamik olarak oluştur
+  const uniqueCategories = [...new Set(products.map(p => p.category))];
+
   return (
     <div className="space-y-6">
       {/* Üst Başlık ve Butonlar */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Ürünler</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Ürünler {selectedProducts.length > 0 && 
+            <span className="text-sm font-normal text-gray-500">
+              ({selectedProducts.length} ürün seçili)
+            </span>
+          }
+        </h1>
         <div className="flex space-x-2">
           {selectedProducts.length > 0 && (
             <>
@@ -134,31 +225,7 @@ const Products = () => {
                 <MdLayersClear className="w-5 h-5 mr-1" />
                 Seçimi Temizle
               </button>
-              <div className="relative group">
-                <button
-                  className="flex items-center px-3 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
-                >
-                  <MdSwapVert className="w-5 h-5 mr-1" />
-                  Kategori Değiştir
-                </button>
-                {/* Kategori Dropdown */}
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block">
-                  <div className="py-1">
-                    <button
-                      onClick={() => handleBulkCategoryUpdate('Elektronik')}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Elektronik
-                    </button>
-                    <button
-                      onClick={() => handleBulkCategoryUpdate('Giyim')}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Giyim
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <CategoryDropdown />
               <button
                 onClick={handleBulkDelete}
                 className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
@@ -184,7 +251,7 @@ const Products = () => {
           <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Ürün ara..."
+            placeholder="Ürün adı, SKU veya açıklama ile ara..."
             className="pl-10 w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -197,9 +264,11 @@ const Products = () => {
           onChange={(e) => setFilters({ ...filters, category: e.target.value })}
         >
           <option value="all">Tüm Kategoriler</option>
-          <option value="electronics">Elektronik</option>
-          <option value="clothing">Giyim</option>
-          {/* Diğer kategoriler */}
+          {uniqueCategories.map(category => (
+            <option key={category} value={category.toLowerCase()}>
+              {category}
+            </option>
+          ))}
         </select>
 
         <select
@@ -208,13 +277,49 @@ const Products = () => {
           onChange={(e) => setFilters({ ...filters, stockStatus: e.target.value })}
         >
           <option value="all">Tüm Stok Durumları</option>
+          <option value="normal">Normal Stok</option>
           <option value="low">Düşük Stok</option>
           <option value="out">Stok Yok</option>
-          <option value="normal">Normal</option>
         </select>
       </div>
 
-      {/* Ürün Tablosu */}
+      {/* Filtreleme Özeti */}
+      {(filters.search || filters.category !== 'all' || filters.stockStatus !== 'all') && (
+        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">
+              Filtrelenen sonuçlar: {filteredProducts.length} ürün
+            </span>
+            {filters.search && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
+                Arama: {filters.search}
+              </span>
+            )}
+            {filters.category !== 'all' && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                Kategori: {filters.category}
+              </span>
+            )}
+            {filters.stockStatus !== 'all' && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                Stok: {filters.stockStatus === 'low' ? 'Düşük' : filters.stockStatus === 'out' ? 'Yok' : 'Normal'}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setFilters({
+              search: '',
+              category: 'all',
+              stockStatus: 'all'
+            })}
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            Filtreleri Temizle
+          </button>
+        </div>
+      )}
+
+      {/* Ürün Tablosu - products yerine filteredProducts kullan */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -251,7 +356,7 @@ const Products = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -319,6 +424,16 @@ const Products = () => {
             </tbody>
           </table>
         </div>
+        
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <MdSearch className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Sonuç Bulunamadı</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Arama kriterlerinize uygun ürün bulunamadı.
+            </p>
+          </div>
+        )}
 
         {/* Sayfalama */}
         <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
