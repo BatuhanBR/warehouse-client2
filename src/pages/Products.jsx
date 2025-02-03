@@ -5,7 +5,11 @@ import {
   MdDelete, 
   MdFilterList, 
   MdSearch,
-  MdWarning 
+  MdWarning,
+  MdSelectAll,
+  MdLayersClear,
+  MdSwapVert,
+  MdDeleteSweep
 } from 'react-icons/md';
 import ProductModal from '../components/ProductModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
@@ -25,6 +29,7 @@ const Products = () => {
     productId: null,
     productName: ''
   });
+  const [selectedProducts, setSelectedProducts] = useState([]);
 
   // Örnek veri - daha sonra API'den gelecek
   const dummyProducts = [
@@ -77,18 +82,100 @@ const Products = () => {
     setDeleteModal({ isOpen: false, productId: null, productName: '' });
   };
 
+  // Tüm ürünleri seç/kaldır
+  const handleSelectAll = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(products.map(p => p.id));
+    }
+  };
+
+  // Tekil ürün seçimi
+  const handleSelectProduct = (productId) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  // Toplu silme
+  const handleBulkDelete = () => {
+    setDeleteModal({
+      isOpen: true,
+      productId: selectedProducts,
+      productName: `${selectedProducts.length} ürün`
+    });
+  };
+
+  // Toplu kategori güncelleme
+  const handleBulkCategoryUpdate = (newCategory) => {
+    setProducts(products.map(product => 
+      selectedProducts.includes(product.id)
+        ? { ...product, category: newCategory }
+        : product
+    ));
+    setSelectedProducts([]);
+  };
+
   return (
     <div className="space-y-6">
       {/* Üst Başlık ve Butonlar */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Ürünler</h1>
-        <button
-          onClick={handleAddProduct}
-          className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <MdAdd className="w-5 h-5 mr-2" />
-          Yeni Ürün
-        </button>
+        <div className="flex space-x-2">
+          {selectedProducts.length > 0 && (
+            <>
+              <button
+                onClick={() => setSelectedProducts([])}
+                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <MdLayersClear className="w-5 h-5 mr-1" />
+                Seçimi Temizle
+              </button>
+              <div className="relative group">
+                <button
+                  className="flex items-center px-3 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
+                >
+                  <MdSwapVert className="w-5 h-5 mr-1" />
+                  Kategori Değiştir
+                </button>
+                {/* Kategori Dropdown */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleBulkCategoryUpdate('Elektronik')}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Elektronik
+                    </button>
+                    <button
+                      onClick={() => handleBulkCategoryUpdate('Giyim')}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Giyim
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                <MdDeleteSweep className="w-5 h-5 mr-1" />
+                Toplu Sil ({selectedProducts.length})
+              </button>
+            </>
+          )}
+          <button
+            onClick={handleAddProduct}
+            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            <MdAdd className="w-5 h-5 mr-2" />
+            Yeni Ürün
+          </button>
+        </div>
       </div>
 
       {/* Filtreler ve Arama */}
@@ -134,6 +221,16 @@ const Products = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      checked={selectedProducts.length === products.length}
+                      onChange={handleSelectAll}
+                    />
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ürün Adı
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -156,6 +253,16 @@ const Products = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {products.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        checked={selectedProducts.includes(product.id)}
+                        onChange={() => handleSelectProduct(product.id)}
+                      />
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="text-sm font-medium text-gray-900">
