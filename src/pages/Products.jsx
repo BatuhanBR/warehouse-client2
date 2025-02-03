@@ -8,6 +8,7 @@ import {
   MdWarning 
 } from 'react-icons/md';
 import ProductModal from '../components/ProductModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -18,6 +19,11 @@ const Products = () => {
     search: '',
     category: 'all',
     stockStatus: 'all'
+  });
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    productId: null,
+    productName: ''
   });
 
   // Örnek veri - daha sonra API'den gelecek
@@ -58,10 +64,17 @@ const Products = () => {
     }
   };
 
-  const handleDeleteProduct = (productId) => {
-    if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
-      setProducts(products.filter(p => p.id !== productId));
-    }
+  const handleDeleteProduct = (product) => {
+    setDeleteModal({
+      isOpen: true,
+      productId: product.id,
+      productName: product.name
+    });
+  };
+
+  const confirmDelete = () => {
+    setProducts(products.filter(p => p.id !== deleteModal.productId));
+    setDeleteModal({ isOpen: false, productId: null, productName: '' });
   };
 
   return (
@@ -187,7 +200,7 @@ const Products = () => {
                         <MdEdit className="w-5 h-5" />
                       </button>
                       <button 
-                        onClick={() => handleDeleteProduct(product.id)}
+                        onClick={() => handleDeleteProduct(product)}
                         className="text-red-600 hover:text-red-900"
                       >
                         <MdDelete className="w-5 h-5" />
@@ -227,6 +240,14 @@ const Products = () => {
           </div>
         </div>
       </div>
+
+      {/* Silme Onay Modalı */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, productId: null, productName: '' })}
+        onConfirm={confirmDelete}
+        itemName={deleteModal.productName}
+      />
 
       {/* Ürün Modalı */}
       <ProductModal
