@@ -1,3 +1,5 @@
+const colors = require('tailwindcss/colors');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -7,6 +9,8 @@ module.exports = {
     extend: {
       colors: {
         primary: {
+          DEFAULT: '#0066A1',
+          dark: '#005485',
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
@@ -17,9 +21,11 @@ module.exports = {
           700: '#0369a1',
           800: '#075985',
           900: '#0c4a6e',
-        },
+        }
       }
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms'),
+  ],
 } 
