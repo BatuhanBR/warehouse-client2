@@ -9,12 +9,22 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     stock: 0,
     minStock: 0,
     price: 0,
-    description: ''
+    description: 'Ürün detayları...'
   });
 
   useEffect(() => {
     if (product) {
       setFormData(product);
+    } else {
+      setFormData({
+        name: '',
+        sku: '',
+        category: '',
+        stock: 0,
+        minStock: 0,
+        price: 0,
+        description: 'Ürün detayları...'
+      });
     }
   }, [product]);
 
@@ -150,17 +160,22 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                 </div>
               </div>
 
-              <div>
+              <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700">
-                  Açıklama
+                  Ürün Açıklaması
                 </label>
                 <textarea
                   name="description"
-                  value={formData.description}
-                  onChange={handleChange}
                   rows="3"
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                ></textarea>
+                  placeholder="Ürün detaylarını girin..."
+                  value={formData.description}
+                  onChange={handleChange}
+                  required
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Ürün özellikleri, boyutları, renk seçenekleri gibi detayları buraya yazabilirsiniz.
+                </p>
               </div>
 
               <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">

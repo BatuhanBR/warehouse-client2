@@ -13,6 +13,8 @@ import {
 } from 'react-icons/md';
 import ProductModal from '../components/ProductModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import productService from '../services/productService';
+import toast from 'react-hot-toast';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -31,22 +33,43 @@ const Products = () => {
   });
   const [selectedProducts, setSelectedProducts] = useState([]);
 
-  // Genişletilmiş örnek veri
-  const dummyProducts = [
-    { id: 1, name: 'iPhone 14 Pro', sku: 'PHN001', category: 'Elektronik', stock: 50, minStock: 10, price: 42999, description: '256GB Uzay Siyahı' },
-    { id: 2, name: 'Samsung Galaxy S23', sku: 'PHN002', category: 'Elektronik', stock: 35, minStock: 8, price: 34999, description: '256GB Yeşil' },
-    { id: 3, name: 'Nike Air Max', sku: 'SHO001', category: 'Giyim', stock: 5, minStock: 20, price: 4599, description: '42 Numara Siyah' },
-    { id: 4, name: 'MacBook Pro M2', sku: 'LPT001', category: 'Elektronik', stock: 15, minStock: 5, price: 52999, description: '512GB Gümüş' },
-    { id: 5, name: 'Adidas Superstar', sku: 'SHO002', category: 'Giyim', stock: 25, minStock: 15, price: 3299, description: '41 Numara Beyaz' },
-    { id: 6, name: 'iPad Air', sku: 'TBL001', category: 'Elektronik', stock: 42, minStock: 12, price: 18999, description: '64GB Uzay Grisi' },
-    { id: 7, name: 'Levi\'s 501', sku: 'JNS001', category: 'Giyim', stock: 3, minStock: 10, price: 1299, description: '32-32 Mavi' },
-    { id: 8, name: 'Sony WH-1000XM4', sku: 'HDN001', category: 'Elektronik', stock: 28, minStock: 8, price: 7899, description: 'Siyah Kablosuz Kulaklık' }
-  ];
+  // Sayfalama state'leri
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 5,  // Sayfa başına gösterilecek ürün sayısı
+    totalPages: 1
+  });
+
+  // Ürünleri getir
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await productService.getAllProducts();
+      console.log('API Response:', response); // API yanıtını kontrol et
+      
+      const formattedProducts = response.data.map(product => ({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        category: product.Category?.name || 'Kategorisiz',
+        stock: product.quantity,
+        minStock: product.minStockLevel,
+        price: product.price,
+        description: product.description || '',
+        locationId: product.locationId
+      }));
+      setProducts(formattedProducts);
+    } catch (error) {
+      console.error('Error:', error); // Hata detayını kontrol et
+      toast.error('Ürünler yüklenirken bir hata oluştu!');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // API entegrasyonunda burayı kullanacağız
-    setProducts(dummyProducts);
-    setLoading(false);
+    fetchProducts();
   }, []);
 
   const handleAddProduct = () => {
@@ -59,19 +82,23 @@ const Products = () => {
     setShowModal(true);
   };
 
-  const handleSaveProduct = (productData) => {
-    if (selectedProduct) {
-      // Ürün güncelleme
-      setProducts(products.map(p => 
-        p.id === selectedProduct.id ? { ...p, ...productData } : p
-      ));
-    } else {
-      // Yeni ürün ekleme
-      const newProduct = {
-        ...productData,
-        id: Math.max(...products.map(p => p.id)) + 1
-      };
-      setProducts([...products, newProduct]);
+  // Ürün kaydetme
+  const handleSaveProduct = async (productData) => {
+    try {
+      if (selectedProduct) {
+        // Güncelleme
+        await productService.updateProduct(selectedProduct.id, productData);
+        toast.success('Ürün başarıyla güncellendi!');
+      } else {
+        // Yeni ekleme
+        await productService.createProduct(productData);
+        toast.success('Ürün başarıyla eklendi!');
+      }
+      fetchProducts(); // Listeyi yenile
+      setShowModal(false);
+    } catch (error) {
+      toast.error('İşlem sırasında bir hata oluştu!');
+      console.error('Error saving product:', error);
     }
   };
 
@@ -83,18 +110,25 @@ const Products = () => {
     });
   };
 
-  const confirmDelete = () => {
-    // Tekli silme
-    if (typeof deleteModal.productId === 'number') {
-      setProducts(products.filter(p => p.id !== deleteModal.productId));
-    } 
-    // Çoklu silme
-    else if (Array.isArray(deleteModal.productId)) {
-      setProducts(products.filter(p => !deleteModal.productId.includes(p.id)));
+  // Silme işlemi
+  const confirmDelete = async () => {
+    try {
+      if (typeof deleteModal.productId === 'number') {
+        // Tekli silme
+        await productService.deleteProduct(deleteModal.productId);
+        toast.success('Ürün başarıyla silindi!');
+      } else if (Array.isArray(deleteModal.productId)) {
+        // Toplu silme
+        await productService.bulkDeleteProducts(deleteModal.productId);
+        toast.success(`${deleteModal.productId.length} ürün başarıyla silindi!`);
+      }
+      fetchProducts(); // Listeyi yenile
+      setDeleteModal({ isOpen: false, productId: null, productName: '' });
+      setSelectedProducts([]);
+    } catch (error) {
+      toast.error('Silme işlemi sırasında bir hata oluştu!');
+      console.error('Error deleting products:', error);
     }
-    
-    setDeleteModal({ isOpen: false, productId: null, productName: '' });
-    setSelectedProducts([]); // Seçimleri temizle
   };
 
   // Tüm ürünleri seç/kaldır
@@ -115,23 +149,17 @@ const Products = () => {
     );
   };
 
-  // Toplu silme
-  const handleBulkDelete = () => {
-    setDeleteModal({
-      isOpen: true,
-      productId: selectedProducts,
-      productName: `${selectedProducts.length} ürün`
-    });
-  };
-
   // Toplu kategori güncelleme
-  const handleBulkCategoryUpdate = (newCategory) => {
-    setProducts(products.map(product => 
-      selectedProducts.includes(product.id)
-        ? { ...product, category: newCategory }
-        : product
-    ));
-    setSelectedProducts([]);
+  const handleBulkCategoryUpdate = async (newCategory) => {
+    try {
+      await productService.bulkUpdateCategory(selectedProducts, newCategory);
+      toast.success(`${selectedProducts.length} ürünün kategorisi güncellendi!`);
+      fetchProducts(); // Listeyi yenile
+      setSelectedProducts([]);
+    } catch (error) {
+      toast.error('Kategori güncellenirken bir hata oluştu!');
+      console.error('Error updating categories:', error);
+    }
   };
 
   // Kategori dropdown'ını geliştirip daha fazla kategori ekleyelim
@@ -203,6 +231,57 @@ const Products = () => {
 
   // Filtre seçeneklerini products'dan dinamik olarak oluştur
   const uniqueCategories = [...new Set(products.map(p => p.category))];
+
+  // Sayfalanmış ürünleri hesapla
+  const paginatedProducts = filteredProducts.slice(
+    (pagination.currentPage - 1) * pagination.itemsPerPage,
+    pagination.currentPage * pagination.itemsPerPage
+  );
+
+  // Toplam sayfa sayısını hesapla
+  useEffect(() => {
+    setPagination(prev => ({
+      ...prev,
+      totalPages: Math.ceil(filteredProducts.length / prev.itemsPerPage)
+    }));
+  }, [filteredProducts]);
+
+  // Sayfa değiştirme fonksiyonu
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({
+      ...prev,
+      currentPage: newPage
+    }));
+  };
+
+  // Sayfa başına ürün sayısını değiştirme
+  const handleItemsPerPageChange = (value) => {
+    setPagination({
+      currentPage: 1,
+      itemsPerPage: value,
+      totalPages: Math.ceil(filteredProducts.length / value)
+    });
+  };
+
+  // Toplu silme işlemi
+  const handleBulkDelete = () => {
+    if (selectedProducts.length === 0) return;
+    
+    setDeleteModal({
+      isOpen: true,
+      productId: selectedProducts, // Array olarak gönder
+      productName: `${selectedProducts.length} ürün`
+    });
+  };
+
+  // Loading durumu için
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -319,7 +398,7 @@ const Products = () => {
         </div>
       )}
 
-      {/* Ürün Tablosu - products yerine filteredProducts kullan */}
+      {/* Ürün Tablosu */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -351,12 +430,15 @@ const Products = () => {
                   Fiyat
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Açıklama
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   İşlemler
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -403,6 +485,14 @@ const Products = () => {
                       })}
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {product.description.length > 50 
+                        ? `${product.description.substring(0, 50)}...`
+                        : product.description
+                      }
+                    </div>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button 
@@ -438,24 +528,110 @@ const Products = () => {
         {/* Sayfalama */}
         <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
           <div className="flex items-center justify-between">
+            {/* Mobil Sayfalama */}
             <div className="flex-1 flex justify-between sm:hidden">
-              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              <button 
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
                 Önceki
               </button>
-              <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              <button 
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={pagination.currentPage === pagination.totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
                 Sonraki
               </button>
             </div>
+
+            {/* Desktop Sayfalama */}
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Toplam <span className="font-medium">97</span> üründen{' '}
-                  <span className="font-medium">1-10</span> arası gösteriliyor
-                </p>
+              <div className="flex items-center">
+                <span className="text-sm text-gray-700 mr-4">
+                  Sayfa başına göster
+                </span>
+                <select
+                  value={pagination.itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-sm text-gray-700 ml-4">
+                  Toplam <span className="font-medium">{filteredProducts.length}</span> üründen{' '}
+                  <span className="font-medium">
+                    {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-
+                    {Math.min(pagination.currentPage * pagination.itemsPerPage, filteredProducts.length)}
+                  </span>{' '}
+                  arası gösteriliyor
+                </span>
               </div>
+
               <div>
                 <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  {/* Sayfa numaraları */}
+                  {/* İlk Sayfa */}
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={pagination.currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                  >
+                    İlk
+                  </button>
+
+                  {/* Sayfa Numaraları */}
+                  {[...Array(pagination.totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    const isCurrentPage = pageNumber === pagination.currentPage;
+
+                    // Sadece mevcut sayfanın etrafındaki 2 sayfayı göster
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === pagination.totalPages ||
+                      Math.abs(pageNumber - pagination.currentPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                            ${isCurrentPage 
+                              ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    }
+
+                    // Sayfa atlaması için üç nokta
+                    if (Math.abs(pageNumber - pagination.currentPage) === 2) {
+                      return (
+                        <span
+                          key={pageNumber}
+                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+
+                    return null;
+                  })}
+
+                  {/* Son Sayfa */}
+                  <button
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    disabled={pagination.currentPage === pagination.totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                  >
+                    Son
+                  </button>
                 </nav>
               </div>
             </div>
