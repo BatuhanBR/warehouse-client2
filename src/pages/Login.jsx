@@ -29,7 +29,7 @@ function Login() {
         
         toast.success('Başarıyla giriş yaptınız!');
         setTimeout(() => {
-          navigate('/welcome');
+          navigate('/dashboard');
         }, 1000);
       }
     } catch (error) {

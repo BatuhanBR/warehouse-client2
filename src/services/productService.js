@@ -15,12 +15,33 @@ const productService = {
 
   // Yeni ürün ekle
   createProduct: async (productData) => {
-    const response = await axios.post(`${API_URL}/products`, productData, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
+    try {
+        console.log('6. Service - API İsteği:', {
+            url: `${API_URL}/products`,
+            data: productData,
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const response = await axios.post(`${API_URL}/products`, productData, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('7. Service - API Yanıtı:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('8. Service - Hata:', {
+            message: error.message,
+            response: error.response?.data,
+            request: error.config
+        });
+        throw error;
+    }
   },
 
   // Ürün güncelle
@@ -45,12 +66,15 @@ const productService = {
 
   // Toplu ürün sil
   bulkDeleteProducts: async (productIds) => {
-    try {
-      const response = await axios.post('/api/products/bulk-delete', { productIds });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await axios.post(`${API_URL}/products/bulk-delete`, 
+      { productIds },
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    return response.data;
   },
 
   // Toplu kategori güncelle

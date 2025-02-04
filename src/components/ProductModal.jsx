@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MdClose } from 'react-icons/md';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const ProductModal = ({ isOpen, onClose, product, onSave }) => {
+  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -28,6 +31,29 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     }
   }, [product]);
 
+  // Kategorileri yükle
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get('http://localhost:3000/api/categories/list', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.data.success) {
+          console.log('Gelen kategoriler:', response.data.data); // Debug için
+          setCategories(response.data.data);
+        }
+      } catch (error) {
+        console.error('Kategoriler yüklenirken hata:', error);
+        toast.error('Kategoriler yüklenemedi');
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -38,8 +64,23 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
-    onClose();
+    
+    // Ham form verisini logla
+    console.log('1. Ham Form Verisi:', formData);
+
+    const productData = {
+      name: formData.name.trim(),
+      sku: formData.sku.trim(),
+      description: formData.description,
+      stock: parseInt(formData.stock),
+      minStock: parseInt(formData.minStock),
+      price: parseFloat(formData.price),
+      categoryId: parseInt(formData.category)
+    };
+
+    // İşlenmiş veriyi logla
+    console.log('2. İşlenmiş Form Verisi:', productData);
+    onSave(productData);
   };
 
   if (!isOpen) return null;
@@ -92,6 +133,9 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                     name="sku"
                     value={formData.sku}
                     onChange={handleChange}
+                    pattern="\d{5}"
+                    maxLength="5"
+                    placeholder="5 rakam giriniz (Örnek: 12345)"
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     required
                   />
@@ -103,15 +147,17 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                   </label>
                   <select
                     name="category"
-                    value={formData.category}
+                    value={formData.category || ''}
                     onChange={handleChange}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     required
                   >
-                    <option value="">Seçiniz</option>
-                    <option value="Elektronik">Elektronik</option>
-                    <option value="Giyim">Giyim</option>
-                    {/* Diğer kategoriler */}
+                    <option value="">Kategori Seçin</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

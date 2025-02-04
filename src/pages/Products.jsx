@@ -45,7 +45,6 @@ const Products = () => {
     try {
       setLoading(true);
       const response = await productService.getAllProducts();
-      console.log('API Response:', response); // API yanıtını kontrol et
       
       const formattedProducts = response.data.map(product => ({
         id: product.id,
@@ -58,9 +57,10 @@ const Products = () => {
         description: product.description || '',
         locationId: product.locationId
       }));
+
       setProducts(formattedProducts);
     } catch (error) {
-      console.error('Error:', error); // Hata detayını kontrol et
+      console.error('Error:', error);
       toast.error('Ürünler yüklenirken bir hata oluştu!');
       setProducts([]);
     } finally {
@@ -85,20 +85,31 @@ const Products = () => {
   // Ürün kaydetme
   const handleSaveProduct = async (productData) => {
     try {
-      if (selectedProduct) {
-        // Güncelleme
-        await productService.updateProduct(selectedProduct.id, productData);
-        toast.success('Ürün başarıyla güncellendi!');
-      } else {
-        // Yeni ekleme
-        await productService.createProduct(productData);
+      console.log('3. API Çağrısı Öncesi Veri:', productData);
+      const response = await productService.createProduct(productData);
+      console.log('4. API Yanıtı:', response);
+
+      if (response.success) {
         toast.success('Ürün başarıyla eklendi!');
+        fetchProducts();
+        setShowModal(false);
       }
-      fetchProducts(); // Listeyi yenile
-      setShowModal(false);
     } catch (error) {
-      toast.error('İşlem sırasında bir hata oluştu!');
-      console.error('Error saving product:', error);
+      // Hata detayını daha açık görelim
+      console.error('5. Hata Detayı:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        fullError: error
+      });
+      
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach(err => {
+          toast.error(`${err.field}: ${err.message}`);
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'İşlem sırasında bir hata oluştu!');
+      }
     }
   };
 
