@@ -1,250 +1,170 @@
 import React, { useState, useEffect } from 'react';
-import { MdClose } from 'react-icons/md';
+import { Modal, Form, Input, InputNumber, Row, Col, Space, Button, Select, DatePicker } from 'antd';
+import { toast } from 'react-hot-toast';
+import dayjs from 'dayjs';
 import axios from 'axios';
-import toast from 'react-hot-toast';
 
-const ProductModal = ({ isOpen, onClose, product, onSave }) => {
-  const [categories, setCategories] = useState([]);
-  const [formData, setFormData] = useState({
-    name: '',
-    sku: '',
-    category: '',
-    stock: 0,
-    minStock: 0,
-    price: 0,
-    description: 'Ürün detayları...'
-  });
+const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [locations, setLocations] = useState([]);
 
-  useEffect(() => {
-    if (product) {
-      setFormData(product);
-    } else {
-      setFormData({
-        name: '',
-        sku: '',
-        category: '',
-        stock: 0,
-        minStock: 0,
-        price: 0,
-        description: 'Ürün detayları...'
-      });
-    }
-  }, [product]);
+    // Kategorileri ve lokasyonları yükle
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [categoriesRes, locationsRes] = await Promise.all([
+                    axios.get('http://localhost:3000/api/categories/list'),
+                    axios.get('http://localhost:3000/api/locations')
+                ]);
+                
+                if (categoriesRes.data.success) setCategories(categoriesRes.data.data);
+                if (locationsRes.data.success) setLocations(locationsRes.data.data);
+            } catch (error) {
+                console.error('Veri yüklenirken hata:', error);
+            }
+        };
+        fetchData();
+    }, []);
 
-  // Kategorileri yükle
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get('http://localhost:3000/api/categories/list', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        
-        if (response.data.success) {
-          console.log('Gelen kategoriler:', response.data.data); // Debug için
-          setCategories(response.data.data);
+    useEffect(() => {
+        if (visible && initialData && mode === 'edit') {
+            form.setFieldsValue({
+                ...initialData,
+                storageStartDate: initialData.storageStartDate ? dayjs(initialData.storageStartDate) : null
+            });
+        } else {
+            form.resetFields();
         }
-      } catch (error) {
-        console.error('Kategoriler yüklenirken hata:', error);
-        toast.error('Kategoriler yüklenemedi');
-      }
+    }, [visible, initialData, form, mode]);
+
+    const handleSubmit = async (values) => {
+        try {
+            setLoading(true);
+            const formattedValues = {
+                ...values,
+                storageStartDate: values.storageStartDate ? values.storageStartDate.format('YYYY-MM-DD') : null
+            };
+            await onSubmit(formattedValues);
+            form.resetFields();
+        } catch (error) {
+            console.error('Form submission error:', error);
+            toast.error('Bir hata oluştu!');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    fetchCategories();
-  }, []);
+    return (
+        <Modal
+            title={mode === 'edit' ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}
+            open={visible}
+            onCancel={onCancel}
+            footer={null}
+            width={800}
+        >
+            <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item name="name" label="Ürün Adı" rules={[{ required: true }]}>
+                            <Input />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item name="sku" label="SKU" rules={[{ required: true }]}>
+                            <Input />
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+                <Row gutter={16}>
+                    <Col span={8}>
+                        <Form.Item name="quantity" label="Stok" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="minStockLevel" label="Minimum Stok" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="categoryId" label="Kategori" rules={[{ required: true }]}>
+                            <Select>
+                                {categories.map(cat => (
+                                    <Select.Option key={cat.id} value={cat.id}>{cat.name}</Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Ham form verisini logla
-    console.log('1. Ham Form Verisi:', formData);
+                <Row gutter={16}>
+                    <Col span={8}>
+                        <Form.Item name="width" label="Genişlik (cm)" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="height" label="Yükseklik (cm)" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="length" label="Uzunluk (cm)" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-    const productData = {
-      name: formData.name.trim(),
-      sku: formData.sku.trim(),
-      description: formData.description,
-      stock: parseInt(formData.stock),
-      minStock: parseInt(formData.minStock),
-      price: parseFloat(formData.price),
-      categoryId: parseInt(formData.category)
-    };
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item name="dailyStorageRate" label="Günlük Depolama Ücreti" rules={[{ required: true }]}>
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item name="storageStartDate" label="Depolama Başlangıç Tarihi">
+                            <DatePicker style={{ width: '100%' }} />
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-    // İşlenmiş veriyi logla
-    console.log('2. İşlenmiş Form Verisi:', productData);
-    onSave(productData);
-  };
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item name="locationId" label="Lokasyon" rules={[{ required: true }]}>
+                            <Select>
+                                {locations.map(loc => (
+                                    <Select.Option key={loc.id} value={loc.id}>
+                                        {`${loc.code} - Raf ${loc.rackNumber}`}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item name="expectedStorageDuration" label="Beklenen Depolama Süresi (Gün)">
+                            <InputNumber style={{ width: '100%' }} min={0} />
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-  if (!isOpen) return null;
+                <Form.Item name="description" label="Açıklama">
+                    <Input.TextArea rows={4} />
+                </Form.Item>
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity">
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-        </div>
-
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen"></span>&#8203;
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {product ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}
-              </h3>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <MdClose className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Ürün Adı
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    SKU
-                  </label>
-                  <input
-                    type="text"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleChange}
-                    pattern="\d{5}"
-                    maxLength="5"
-                    placeholder="5 rakam giriniz (Örnek: 12345)"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Kategori
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    required
-                  >
-                    <option value="">Kategori Seçin</option>
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Stok
-                  </label>
-                  <input
-                    type="number"
-                    name="stock"
-                    value={formData.stock}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Min. Stok
-                  </label>
-                  <input
-                    type="number"
-                    name="minStock"
-                    value={formData.minStock}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Fiyat
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Ürün Açıklaması
-                </label>
-                <textarea
-                  name="description"
-                  rows="3"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Ürün detaylarını girin..."
-                  value={formData.description}
-                  onChange={handleChange}
-                  required
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Ürün özellikleri, boyutları, renk seçenekleri gibi detayları buraya yazabilirsiniz.
-                </p>
-              </div>
-
-              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                <button
-                  type="submit"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:col-start-2 sm:text-sm"
-                >
-                  {product ? 'Güncelle' : 'Ekle'}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:col-start-1 sm:text-sm"
-                >
-                  İptal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+                <Form.Item>
+                    <Space>
+                        <Button onClick={onCancel}>İptal</Button>
+                        <Button type="primary" htmlType="submit" loading={loading}>
+                            {mode === 'edit' ? 'Güncelle' : 'Ekle'}
+                        </Button>
+                    </Space>
+                </Form.Item>
+            </Form>
+        </Modal>
+    );
 };
 
 export default ProductModal; 

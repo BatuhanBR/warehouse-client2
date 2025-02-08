@@ -5,12 +5,17 @@ const API_URL = 'http://localhost:3000/api';
 const productService = {
   // Tüm ürünleri getir
   getAllProducts: async () => {
-    const response = await axios.get(`${API_URL}/products`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
-    return response.data;
+    try {
+        const response = await axios.get(`${API_URL}/products`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        return response.data; // Bu direkt olarak {success: true, data: [...]} formatında dönecek
+    } catch (error) {
+        console.error('Product service error:', error);
+        throw error;
+    }
   },
 
   // Yeni ürün ekle

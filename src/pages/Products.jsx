@@ -15,12 +15,15 @@ import ProductModal from '../components/ProductModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import productService from '../services/productService';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+import { Table } from 'antd';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalMode, setModalMode] = useState('add'); // 'add' veya 'edit'
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -32,6 +35,7 @@ const Products = () => {
     productName: ''
   });
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [error, setError] = useState(null);
 
   // Sayfalama state'leri
   const [pagination, setPagination] = useState({
@@ -40,29 +44,136 @@ const Products = () => {
     totalPages: 1
   });
 
+  // Tablo kolonları
+  const columns = [
+    {
+      title: 'Ürün Adı',
+      dataIndex: 'name',
+      key: 'name',
+      render: text => text || '-'
+    },
+    {
+      title: 'SKU',
+      dataIndex: 'sku',
+      key: 'sku',
+      render: text => text || '-'
+    },
+    {
+      title: 'Stok',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      render: quantity => (quantity || quantity === 0) ? quantity.toString() : '-'
+    },
+    {
+      title: 'Kategori',
+      key: 'category',
+      render: (_, record) => record?.Category?.name || '-'
+    },
+    {
+      title: 'Boyutlar',
+      key: 'dimensions',
+      render: (_, record) => {
+        if (!record?.width || !record?.height || !record?.length) return '-';
+        return `${record.width}×${record.height}×${record.length} cm`;
+      }
+    },
+    {
+      title: 'Hacim',
+      key: 'volume',
+      render: (_, record) => {
+        if (!record?.width || !record?.height || !record?.length) return '-';
+        const volume = (record.width * record.height * record.length) / 1000000;
+        return `${Number(volume).toFixed(3)} m³`;
+      }
+    },
+    {
+      title: 'Depolama Başlangıç',
+      dataIndex: 'storageStartDate',
+      key: 'storageStartDate',
+      render: date => date ? new Date(date).toLocaleDateString('tr-TR') : '-'
+    },
+    {
+      title: 'Planlanan Bitiş',
+      key: 'expectedEndDate',
+      render: (_, record) => {
+        if (!record?.storageStartDate) return '-';
+        const startDate = new Date(record.storageStartDate);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + (record?.expectedStorageDuration || 0));
+        return endDate.toLocaleDateString('tr-TR');
+      }
+    },
+    {
+      title: 'Günlük Ücret',
+      dataIndex: 'dailyStorageRate',
+      key: 'dailyStorageRate',
+      render: rate => {
+        if (!rate && rate !== 0) return '-';
+        return `${Number(rate).toFixed(2)} ₺/gün`;
+      }
+    },
+    {
+      title: 'Toplam Maliyet',
+      dataIndex: 'totalStorageCost',
+      key: 'totalStorageCost',
+      render: cost => {
+        if (!cost && cost !== 0) return '-';
+        return `${Number(cost).toFixed(2)} ₺`;
+      }
+    },
+    {
+      title: 'İşlemler',
+      key: 'actions',
+      render: (_, record) => (
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => handleEditProduct(record)}
+            className="text-primary-600 hover:text-primary-900"
+          >
+            <MdEdit className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={() => handleDeleteProduct(record)}
+            className="text-red-600 hover:text-red-900"
+          >
+            <MdDelete className="w-5 h-5" />
+          </button>
+        </div>
+      )
+    }
+  ];
+
   // Ürünleri getir
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await productService.getAllProducts();
       
-      const formattedProducts = response.data.map(product => ({
-        id: product.id,
-        name: product.name,
-        sku: product.sku,
-        category: product.Category?.name || 'Kategorisiz',
-        stock: product.quantity,
-        minStock: product.minStockLevel,
-        price: product.price,
-        description: product.description || '',
-        locationId: product.locationId
-      }));
-
-      setProducts(formattedProducts);
-    } catch (error) {
-      console.error('Error:', error);
+      if (response?.success && Array.isArray(response.data)) {
+        // Gelen veriyi kontrol et ve güvenli bir şekilde dönüştür
+        const safeProducts = response.data.map(product => ({
+          ...product,
+          name: product?.name || '',
+          sku: product?.sku || '',
+          quantity: product?.quantity ?? 0,
+          category: product?.Category?.name || '',
+          width: product?.width,
+          height: product?.height,
+          length: product?.length,
+          dailyStorageRate: product?.dailyStorageRate || 0,
+          totalStorageCost: product?.totalStorageCost || 0,
+          storageStartDate: product?.storageStartDate,
+          expectedStorageDuration: product?.expectedStorageDuration || 0
+        }));
+        setProducts(safeProducts);
+      } else {
+        throw new Error('Invalid data format received');
+      }
+    } catch (err) {
+      console.error('Error loading products:', err);
+      setError('Ürünler yüklenirken bir hata oluştu');
       toast.error('Ürünler yüklenirken bir hata oluştu!');
-      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -77,40 +188,40 @@ const Products = () => {
     setShowModal(true);
   };
 
-  const handleEditProduct = (product) => {
-    setSelectedProduct(product);
+  const handleEditProduct = (record) => {
+    setSelectedProduct(record);
+    setModalMode('edit');
     setShowModal(true);
   };
 
-  // Ürün kaydetme
-  const handleSaveProduct = async (productData) => {
+  const handleModalSubmit = async (values) => {
     try {
-      console.log('3. API Çağrısı Öncesi Veri:', productData);
-      const response = await productService.createProduct(productData);
-      console.log('4. API Yanıtı:', response);
+      if (modalMode === 'edit' && selectedProduct) {
+        const response = await axios.put(
+          `http://localhost:3000/api/products/${selectedProduct.id}`,
+          values,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
 
-      if (response.success) {
-        toast.success('Ürün başarıyla eklendi!');
-        fetchProducts();
-        setShowModal(false);
+        if (response.data.success) {
+          toast.success('Ürün başarıyla güncellendi');
+          fetchProducts(); // Ürünleri yeniden yükle
+          setShowModal(false);
+        }
       }
     } catch (error) {
-      // Hata detayını daha açık görelim
-      console.error('5. Hata Detayı:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        fullError: error
-      });
-      
-      if (error.response?.data?.errors) {
-        error.response.data.errors.forEach(err => {
-          toast.error(`${err.field}: ${err.message}`);
-        });
-      } else {
-        toast.error(error.response?.data?.message || 'İşlem sırasında bir hata oluştu!');
-      }
+      console.error('Ürün güncelleme hatası:', error);
+      toast.error('Ürün güncellenirken bir hata oluştu');
     }
+  };
+
+  const handleModalCancel = () => {
+    setShowModal(false);
+    setSelectedProduct(null);
   };
 
   const handleDeleteProduct = (product) => {
@@ -225,13 +336,13 @@ const Products = () => {
     let matchesStock = true;
     switch (filters.stockStatus) {
       case 'low':
-        matchesStock = product.stock <= product.minStock;
+        matchesStock = product.quantity <= product.minStockLevel;
         break;
       case 'out':
-        matchesStock = product.stock === 0;
+        matchesStock = product.quantity === 0;
         break;
       case 'normal':
-        matchesStock = product.stock > product.minStock;
+        matchesStock = product.quantity > product.minStockLevel;
         break;
       default:
         matchesStock = true;
@@ -275,14 +386,31 @@ const Products = () => {
   };
 
   // Toplu silme işlemi
-  const handleBulkDelete = () => {
-    if (selectedProducts.length === 0) return;
-    
-    setDeleteModal({
-      isOpen: true,
-      productId: selectedProducts, // Array olarak gönder
-      productName: `${selectedProducts.length} ürün`
-    });
+  const handleBulkDelete = async (selectedIds) => {
+    try {
+        // Token'ı localStorage'dan al
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.post(
+            'http://localhost:3000/api/products/bulk-delete', 
+            { ids: selectedIds },
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (response.data.success) {
+            toast.success(response.data.message);
+            setSelectedProducts([]); // Seçili ürünleri temizle
+            fetchProducts(); // Tabloyu yenile
+        }
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        toast.error('Ürünler silinirken bir hata oluştu');
+    }
   };
 
   // Loading durumu için
@@ -292,6 +420,10 @@ const Products = () => {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
       </div>
     );
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>;
   }
 
   return (
@@ -317,7 +449,13 @@ const Products = () => {
               </button>
               <CategoryDropdown />
               <button
-                onClick={handleBulkDelete}
+                onClick={() => {
+                    if (selectedProducts.length === 0) {
+                        toast.error('Lütfen silinecek ürünleri seçin');
+                        return;
+                    }
+                    handleBulkDelete(selectedProducts);
+                }}
                 className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
               >
                 <MdDeleteSweep className="w-5 h-5 mr-1" />
@@ -412,118 +550,17 @@ const Products = () => {
       {/* Ürün Tablosu */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      checked={selectedProducts.length === products.length}
-                      onChange={handleSelectAll}
-                    />
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ürün Adı
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  SKU
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Kategori
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stok
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fiyat
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Açıklama
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  İşlemler
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        checked={selectedProducts.includes(product.id)}
-                        onChange={() => handleSelectProduct(product.id)}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="text-sm font-medium text-gray-900">
-                        {product.name}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{product.sku}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {product.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${
-                      product.stock <= product.minStock 
-                        ? 'text-red-600' 
-                        : 'text-green-600'
-                    }`}>
-                      {product.stock}
-                      {product.stock <= product.minStock && (
-                        <MdWarning className="inline ml-1 text-red-500" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {product.price.toLocaleString('tr-TR', { 
-                        style: 'currency', 
-                        currency: 'TRY' 
-                      })}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {product.description.length > 50 
-                        ? `${product.description.substring(0, 50)}...`
-                        : product.description
-                      }
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleEditProduct(product)}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
-                        <MdEdit className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteProduct(product)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <MdDelete className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table 
+            columns={columns} 
+            dataSource={paginatedProducts}
+            rowKey="id"
+            pagination={{
+              current: pagination.currentPage,
+              pageSize: pagination.itemsPerPage,
+              total: filteredProducts.length,
+              onChange: handlePageChange
+            }}
+          />
         </div>
         
         {filteredProducts.length === 0 && (
@@ -660,10 +697,11 @@ const Products = () => {
 
       {/* Ürün Modalı */}
       <ProductModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        product={selectedProduct}
-        onSave={handleSaveProduct}
+        visible={showModal}
+        onCancel={handleModalCancel}
+        onSubmit={handleModalSubmit}
+        initialData={selectedProduct}
+        mode={modalMode}
       />
     </div>
   );
