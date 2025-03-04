@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -12,30 +13,36 @@ import ForgotPassword from './pages/ForgotPassword';
 import Welcome from './pages/Welcome';
 import Contact from './pages/Contact';
 import About from './pages/About';
+import Warehouse3D from './pages/Warehouse3D';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
-    <Router>
+    <AuthProvider>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         
         {/* Protected Routes */}
-        <Route element={<PrivateRoute />}>
+        <Route path="/" element={<PrivateRoute />}>
           <Route element={<Layout />}>
-            <Route path="/welcome" element={<Welcome />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/stock-movements" element={<StockMovements />} />
+            <Route path="/warehouse-3d" element={<Warehouse3D />} />
             <Route path="/users" element={<Users />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/about" element={<About />} />
+            <Route path="/welcome" element={<Welcome />} />
           </Route>
         </Route>
       </Routes>
-    </Router>
+      <Toaster position="top-right" />
+    </AuthProvider>
   );
 }
 

@@ -4,7 +4,8 @@ import {
   MdDashboard, 
   MdInventory, 
   MdSwapHoriz,
-  MdPeople
+  MdPeople,
+  MdViewInAr
 } from 'react-icons/md';
 
 const menuItems = [
@@ -14,28 +15,28 @@ const menuItems = [
   },
   {
     title: 'DASHBOARDLAR',
-    path: '/dashboard',
+    path: 'dashboard',
     icon: <MdDashboard className="w-6 h-6" />
   },
   {
     title: 'ÜRÜNLER',
-    path: '/products',
+    path: 'products',
     icon: <MdInventory className="w-6 h-6" />
   },
   {
     title: 'STOCK HAREKETLERİ',
-    path: '/stock-movements',
+    path: 'stock-movements',
     icon: <MdSwapHoriz className="w-6 h-6" />
   },
   {
     title: 'KULLANICILAR',
-    path: '/users',
+    path: 'users',
     icon: <MdPeople className="w-6 h-6" />
   },
   {
     title: '3D DEPO GÖRÜNÜMÜ',
-    path: '/3d-view',
-    icon: <MdDashboard className="w-6 h-6" />
+    path: 'warehouse-3d',
+    icon: <MdViewInAr className="w-6 h-6" />
   }
 ];
 

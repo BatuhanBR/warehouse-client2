@@ -2,8 +2,58 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import { DashboardOutlined, UserOutlined, ShopOutlined, InboxOutlined, EnvironmentOutlined, BoxPlotOutlined } from '@ant-design/icons';
+import { useAuth } from '../contexts/AuthContext';
 
 const Layout = () => {
+  const { user } = useAuth();
+
+  const menuItems = [
+    {
+      key: 'dashboard',
+      icon: <DashboardOutlined />,
+      label: 'Dashboard',
+      permission: 'users.view' // Dashboard'ı sadece users.view yetkisi olanlar görebilir
+    },
+    {
+      key: 'users',
+      icon: <UserOutlined />,
+      label: 'Kullanıcılar',
+      permission: 'users.view'
+    },
+    {
+      key: 'products',
+      icon: <ShopOutlined />,
+      label: 'Ürünler',
+      permission: 'products.view'
+    },
+    {
+      key: 'stock',
+      icon: <InboxOutlined />,
+      label: 'Stok Hareketleri',
+      permission: 'stock.view'
+    },
+    {
+      key: 'locations',
+      icon: <EnvironmentOutlined />,
+      label: 'Lokasyonlar',
+      permission: 'locations.view'
+    },
+    {
+      key: 'warehouse-3d',
+      icon: <BoxPlotOutlined />,
+      label: '3D Depo Görünümü',
+      path: '/warehouse-3d'
+    }
+  ];
+
+  // Menü itemlerini filtreleme
+  const filteredMenuItems = menuItems.filter(item => {
+    // Kullanıcının yetkilerini kontrol et
+    const userPermissions = user?.role?.permissions?.map(p => p.name) || [];
+    return userPermissions.includes(item.permission);
+  });
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-100/50 to-indigo-100/50">
       {/* Sidebar - Mobilde gizli */}

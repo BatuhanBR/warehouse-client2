@@ -27,7 +27,8 @@ const Products = () => {
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
-    stockStatus: 'all'
+    stockStatus: 'all',
+    rackNumber: 'all'  // Yeni raf filtresi
   });
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
@@ -78,12 +79,11 @@ const Products = () => {
       }
     },
     {
-      title: 'Hacim',
-      key: 'volume',
+      title: 'Lokasyon',
+      key: 'location',
       render: (_, record) => {
-        if (!record?.width || !record?.height || !record?.length) return '-';
-        const volume = (record.width * record.height * record.length) / 1000000;
-        return `${Number(volume).toFixed(3)} m³`;
+        if (!record?.Location) return 'Atanmamış';
+        return `Raf ${record.Location.rackNumber}, Kat ${record.Location.level}, Pozisyon ${record.Location.position}`;
       }
     },
     {
@@ -120,6 +120,11 @@ const Products = () => {
         if (!cost && cost !== 0) return '-';
         return `${Number(cost).toFixed(2)} ₺`;
       }
+    },
+    {
+      title: 'Şirket',
+      key: 'company',
+      render: (_, record) => record?.company || '-'
     },
     {
       title: 'İşlemler',
@@ -161,10 +166,12 @@ const Products = () => {
           width: product?.width,
           height: product?.height,
           length: product?.length,
+          Location: product?.Location || null,  // Location bilgisini ekle
           dailyStorageRate: product?.dailyStorageRate || 0,
           totalStorageCost: product?.totalStorageCost || 0,
           storageStartDate: product?.storageStartDate,
-          expectedStorageDuration: product?.expectedStorageDuration || 0
+          expectedStorageDuration: product?.expectedStorageDuration || 0,
+          company: product?.company || ''
         }));
         setProducts(safeProducts);
       } else {
@@ -184,7 +191,8 @@ const Products = () => {
   }, []);
 
   const handleAddProduct = () => {
-    setSelectedProduct(null); // Yeni ürün
+    setSelectedProduct(null);
+    setModalMode('add');
     setShowModal(true);
   };
 
@@ -197,6 +205,7 @@ const Products = () => {
   const handleModalSubmit = async (values) => {
     try {
       if (modalMode === 'edit' && selectedProduct) {
+        // Düzenleme işlemi
         const response = await axios.put(
           `http://localhost:3000/api/products/${selectedProduct.id}`,
           values,
@@ -209,13 +218,30 @@ const Products = () => {
 
         if (response.data.success) {
           toast.success('Ürün başarıyla güncellendi');
-          fetchProducts(); // Ürünleri yeniden yükle
+          fetchProducts();
+          setShowModal(false);
+        }
+      } else {
+        // Yeni ürün ekleme işlemi
+        const response = await axios.post(
+          'http://localhost:3000/api/products',
+          values,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+
+        if (response.data.success) {
+          toast.success('Ürün başarıyla eklendi');
+          fetchProducts();
           setShowModal(false);
         }
       }
     } catch (error) {
-      console.error('Ürün güncelleme hatası:', error);
-      toast.error('Ürün güncellenirken bir hata oluştu');
+      console.error('İşlem hatası:', error);
+      toast.error(modalMode === 'edit' ? 'Ürün güncellenirken bir hata oluştu' : 'Ürün eklenirken bir hata oluştu');
     }
   };
 
@@ -318,38 +344,32 @@ const Products = () => {
     </div>
   );
 
+  // Filtreleme fonksiyonunu güncelleyelim
+  const filterProducts = (products) => {
+    return products.filter(product => {
+      // Arama filtresi
+      const searchMatch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        product.sku.toLowerCase().includes(filters.search.toLowerCase());
+
+      // Kategori filtresi
+      const categoryMatch = filters.category === 'all' || product.categoryId === parseInt(filters.category);
+
+      // Stok durumu filtresi
+      const stockMatch = filters.stockStatus === 'all' ||
+        (filters.stockStatus === 'low' && product.quantity <= product.minStockLevel) ||
+        (filters.stockStatus === 'out' && product.quantity === 0) ||
+        (filters.stockStatus === 'in' && product.quantity > 0);
+
+      // Raf filtresi
+      const rackMatch = filters.rackNumber === 'all' || 
+        (product.Location?.rackNumber === parseInt(filters.rackNumber));
+
+      return searchMatch && categoryMatch && stockMatch && rackMatch;
+    });
+  };
+
   // Filtrelenmiş ürünleri hesapla
-  const filteredProducts = products.filter(product => {
-    // Arama filtresi
-    const searchFilter = filters.search.toLowerCase();
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchFilter) ||
-      product.sku.toLowerCase().includes(searchFilter) ||
-      product.description.toLowerCase().includes(searchFilter);
-
-    // Kategori filtresi
-    const matchesCategory = 
-      filters.category === 'all' || 
-      product.category.toLowerCase() === filters.category.toLowerCase();
-
-    // Stok durumu filtresi
-    let matchesStock = true;
-    switch (filters.stockStatus) {
-      case 'low':
-        matchesStock = product.quantity <= product.minStockLevel;
-        break;
-      case 'out':
-        matchesStock = product.quantity === 0;
-        break;
-      case 'normal':
-        matchesStock = product.quantity > product.minStockLevel;
-        break;
-      default:
-        matchesStock = true;
-    }
-
-    return matchesSearch && matchesCategory && matchesStock;
-  });
+  const filteredProducts = filterProducts(products);
 
   // Filtre seçeneklerini products'dan dinamik olarak oluştur
   const uniqueCategories = [...new Set(products.map(p => p.category))];
@@ -508,6 +528,20 @@ const Products = () => {
           <option value="normal">Normal Stok</option>
           <option value="low">Düşük Stok</option>
           <option value="out">Stok Yok</option>
+        </select>
+
+        {/* Yeni raf filtresi */}
+        <select
+          className="p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          value={filters.rackNumber}
+          onChange={(e) => setFilters({ ...filters, rackNumber: e.target.value })}
+        >
+          <option value="all">Tüm Raflar</option>
+          {[...Array(10)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              Raf {i + 1}
+            </option>
+          ))}
         </select>
       </div>
 
