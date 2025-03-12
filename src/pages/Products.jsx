@@ -16,7 +16,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import productService from '../services/productService';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { Table } from 'antd';
+import { Table, Tag } from 'antd';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -71,11 +71,166 @@ const Products = () => {
       render: (_, record) => record?.Category?.name || '-'
     },
     {
-      title: 'Boyutlar',
+      title: 'Fiyat',
+      dataIndex: 'price',
+      key: 'price',
+      render: (price, record) => {
+        // Kategori bazlı günlük ücret
+        const categoryStorageRates = {
+          'Elektronik': 100,
+          'Gıda': 150,
+          'Kozmetik': 120,
+          'Kitap': 50,
+          'Giyim': 70,
+          'Spor': 80,
+          'Ev & Yaşam': 90,
+          'Oyuncak': 60,
+          'Ofis': 70,
+          'Bahçe': 100
+        };
+
+        const dailyRate = categoryStorageRates[record?.Category?.name] || 50;
+        const duration = record.expectedStorageDuration || 0;
+        
+        let basePrice = dailyRate * duration;
+        let discount = 1.0;
+        
+        if (duration >= 180) discount = 0.85;      // 6+ ay: %15 indirim
+        else if (duration >= 90) discount = 0.90;  // 3+ ay: %10 indirim
+        else if (duration >= 30) discount = 0.95;  // 1+ ay: %5 indirim
+        
+        const finalPrice = basePrice * discount;
+        return `₺${finalPrice.toFixed(2)}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      },
+      sorter: (a, b) => {
+        const getPrice = (record) => {
+          const rates = {
+            'Elektronik': 100,
+            'Gıda': 150,
+            'Kozmetik': 120,
+            'Kitap': 50,
+            'Giyim': 70,
+            'Spor': 80,
+            'Ev & Yaşam': 90,
+            'Oyuncak': 60,
+            'Ofis': 70,
+            'Bahçe': 100
+          };
+          const dailyRate = rates[record?.Category?.name] || 50;
+          const duration = record.expectedStorageDuration || 0;
+          let basePrice = dailyRate * duration;
+          let discount = 1.0;
+          if (duration >= 180) discount = 0.85;
+          else if (duration >= 90) discount = 0.90;
+          else if (duration >= 30) discount = 0.95;
+          return basePrice * discount;
+        };
+        return getPrice(a) - getPrice(b);
+      }
+    },
+    {
+      title: 'Günlük Depolama',
+      dataIndex: 'dailyStorageRate',
+      key: 'dailyStorageRate',
+      render: (rate, record) => {
+        const categoryStorageRates = {
+          'Elektronik': 100,
+          'Gıda': 150,
+          'Kozmetik': 120,
+          'Kitap': 50,
+          'Giyim': 70,
+          'Spor': 80,
+          'Ev & Yaşam': 90,
+          'Oyuncak': 60,
+          'Ofis': 70,
+          'Bahçe': 100
+        };
+        
+        const dailyRate = categoryStorageRates[record?.Category?.name] || 50;
+        return `₺${dailyRate.toFixed(2)}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      },
+      sorter: (a, b) => {
+        const getRateByCategory = (category) => {
+          const rates = {
+            'Elektronik': 100,
+            'Gıda': 150,
+            'Kozmetik': 120,
+            'Kitap': 50,
+            'Giyim': 70,
+            'Spor': 80,
+            'Ev & Yaşam': 90,
+            'Oyuncak': 60,
+            'Ofis': 70,
+            'Bahçe': 100
+          };
+          return rates[category] || 50;
+        };
+        return getRateByCategory(a?.Category?.name) - getRateByCategory(b?.Category?.name);
+      }
+    },
+    {
+      title: 'Ağırlık',
+      dataIndex: 'weight',
+      key: 'weight',
+      render: weight => `${weight} kg`
+    },
+    {
+      title: 'Boyutlar (cm)',
       key: 'dimensions',
       render: (_, record) => {
-        if (!record?.width || !record?.height || !record?.length) return '-';
-        return `${record.width}×${record.height}×${record.length} cm`;
+        const width = Number(record.width || 0).toFixed(1);
+        const height = Number(record.height || 0).toFixed(1);
+        const length = Number(record.length || 0).toFixed(1);
+        
+        return (
+          <div style={{ whiteSpace: 'nowrap' }}>
+            <div>En: {width}</div>
+            <div>Boy: {height}</div>
+            <div>Derinlik: {length}</div>
+          </div>
+        );
+      }
+    },
+    {
+      title: 'Boyut Kategorisi',
+      dataIndex: 'sizeCategory',
+      key: 'sizeCategory',
+      render: (_, record) => {
+        // Hacim hesaplama (cm³)
+        const width = Number(record.width || 0);
+        const height = Number(record.height || 0);
+        const length = Number(record.length || 0);
+        const volume = width * height * length;
+        
+        // Boyut kategorisi belirleme
+        let category;
+        let color;
+        
+        if (volume <= 5000) { // 5.000 cm³ = 5 litre
+          category = 'Küçük';
+          color = 'success';
+        } else if (volume <= 50000) { // 50.000 cm³ = 50 litre
+          category = 'Normal';
+          color = 'processing';
+        } else {
+          category = 'Büyük';
+          color = 'warning';
+        }
+
+        return (
+          <Tag color={color}>
+            {category} ({(volume/1000).toFixed(3)} L)
+          </Tag>
+        );
+      },
+      sorter: (a, b) => {
+        const getVolume = (record) => {
+          const width = Number(record.width || 0);
+          const height = Number(record.height || 0);
+          const length = Number(record.length || 0);
+          return width * height * length;
+        };
+        return getVolume(a) - getVolume(b);
       }
     },
     {
@@ -101,24 +256,6 @@ const Products = () => {
         const endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + (record?.expectedStorageDuration || 0));
         return endDate.toLocaleDateString('tr-TR');
-      }
-    },
-    {
-      title: 'Günlük Ücret',
-      dataIndex: 'dailyStorageRate',
-      key: 'dailyStorageRate',
-      render: rate => {
-        if (!rate && rate !== 0) return '-';
-        return `${Number(rate).toFixed(2)} ₺/gün`;
-      }
-    },
-    {
-      title: 'Toplam Maliyet',
-      dataIndex: 'totalStorageCost',
-      key: 'totalStorageCost',
-      render: cost => {
-        if (!cost && cost !== 0) return '-';
-        return `${Number(cost).toFixed(2)} ₺`;
       }
     },
     {
@@ -157,22 +294,32 @@ const Products = () => {
       
       if (response?.success && Array.isArray(response.data)) {
         // Gelen veriyi kontrol et ve güvenli bir şekilde dönüştür
-        const safeProducts = response.data.map(product => ({
-          ...product,
-          name: product?.name || '',
-          sku: product?.sku || '',
-          quantity: product?.quantity ?? 0,
-          category: product?.Category?.name || '',
-          width: product?.width,
-          height: product?.height,
-          length: product?.length,
-          Location: product?.Location || null,  // Location bilgisini ekle
-          dailyStorageRate: product?.dailyStorageRate || 0,
-          totalStorageCost: product?.totalStorageCost || 0,
-          storageStartDate: product?.storageStartDate,
-          expectedStorageDuration: product?.expectedStorageDuration || 0,
-          company: product?.company || ''
-        }));
+        const safeProducts = response.data.map(product => {
+          // Debug için
+          console.log('Ham ürün verisi:', product);
+          
+          return {
+            ...product,
+            name: product?.name || '',
+            sku: product?.sku || '',
+            quantity: product?.quantity ?? 0,
+            category: product?.Category?.name || '',
+            Location: product?.Location || null,
+            storageStartDate: product?.storageStartDate,
+            expectedStorageDuration: product?.expectedStorageDuration || 0,
+            width: parseFloat(product?.width) || 0,
+            height: parseFloat(product?.height) || 0,
+            length: parseFloat(product?.length) || 0,
+            weight: parseFloat(product?.weight) || 0,
+            price: parseFloat(product?.price) || 0,
+            dailyStorageRate: parseFloat(product?.dailyStorageRate) || 0,
+            company: product?.company || ''
+          };
+        });
+        
+        // Debug için
+        console.log('İşlenmiş ürün verisi:', safeProducts);
+        
         setProducts(safeProducts);
       } else {
         throw new Error('Invalid data format received');
@@ -237,11 +384,13 @@ const Products = () => {
           toast.success('Ürün başarıyla eklendi');
           fetchProducts();
           setShowModal(false);
+        } else {
+          throw new Error(response.data.message || 'Ürün eklenirken bir hata oluştu');
         }
       }
     } catch (error) {
       console.error('İşlem hatası:', error);
-      toast.error(modalMode === 'edit' ? 'Ürün güncellenirken bir hata oluştu' : 'Ürün eklenirken bir hata oluştu');
+      toast.error(error.response?.data?.message || (modalMode === 'edit' ? 'Ürün güncellenirken bir hata oluştu' : 'Ürün eklenirken bir hata oluştu'));
     }
   };
 
