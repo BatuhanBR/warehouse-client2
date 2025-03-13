@@ -16,6 +16,7 @@ import About from './pages/About';
 import Warehouse3D from './pages/Warehouse3D';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* Protected Routes */}
         <Route path="/" element={<PrivateRoute />}>
