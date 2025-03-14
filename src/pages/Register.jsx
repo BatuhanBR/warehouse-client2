@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 import toast, { Toaster } from 'react-hot-toast';
@@ -6,26 +6,11 @@ import { motion } from 'framer-motion';
 
 function Register() {
   const navigate = useNavigate();
-  const [roles, setRoles] = useState([]);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    password: '',
-    roleId: ''
+    password: ''
   });
-
-  useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await authService.getRoles();
-        setRoles(response.data);
-      } catch (error) {
-        console.error('Roller yüklenirken hata:', error);
-      }
-    };
-
-    fetchRoles();
-  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -38,7 +23,11 @@ function Register() {
     e.preventDefault();
     
     try {
-      const response = await authService.register(formData);
+      // roleId: 2 kullanıcı rolü için (varsayılan olarak user rolü)
+      const response = await authService.register({
+        ...formData,
+        roleId: 2
+      });
       
       if (response.data.success) {
         toast.success('Hesabınız başarıyla oluşturuldu!');
@@ -147,29 +136,6 @@ function Register() {
                   className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
                   placeholder="••••••••"
                 />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="roleId" className="block text-sm font-medium text-gray-700">
-                Rol
-              </label>
-              <div className="mt-1 relative">
-                <select
-                  id="roleId"
-                  name="roleId"
-                  required
-                  value={formData.roleId}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-                >
-                  <option value="">Rol seçin</option>
-                  {roles.map(role => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
 
