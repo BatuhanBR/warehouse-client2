@@ -26,13 +26,24 @@ function Login() {
       
       if (response.data.success) {
         localStorage.setItem('token', response.data.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
         
+        const token = localStorage.getItem('token');
+        if (!token) {
+          toast.error('Giriş yapılamadı. Lütfen tekrar deneyin.');
+          return;
+        }
+
         toast.success('Başarıyla giriş yaptınız!');
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        navigate('/dashboard', { replace: true });
       }
     } catch (error) {
+      console.error('Login error:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       toast.error(error.response?.data?.message || 'Giriş yapılırken bir hata oluştu');
     }
   };
