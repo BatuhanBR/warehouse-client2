@@ -9,7 +9,8 @@ import {
   MdSelectAll,
   MdLayersClear,
   MdSwapVert,
-  MdDeleteSweep
+  MdDeleteSweep,
+  MdFileDownload
 } from 'react-icons/md';
 import ProductModal from '../components/ProductModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
@@ -582,6 +583,39 @@ const Products = () => {
     }
   };
 
+  // Excel indirme fonksiyonu
+  const handleExportToExcel = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Excel dosyasını indirmek için bir fetch isteği yap
+      const response = await fetch('http://localhost:3000/api/products/export-excel', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Excel dosyası indirilemedi');
+      }
+
+      // Dosya blob olarak indir
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'urunler.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
+      toast.success('Excel dosyası başarıyla indirildi');
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Excel dosyası indirilirken bir hata oluştu');
+    }
+  };
+
   // Loading durumu için
   if (loading) {
     return (
@@ -632,6 +666,13 @@ const Products = () => {
               </button>
             </>
           )}
+          <button
+            onClick={handleExportToExcel}
+            className="flex items-center px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+          >
+            <MdFileDownload className="w-5 h-5 mr-1" />
+            Excel İndir
+          </button>
           <button
             onClick={handleAddProduct}
             className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -868,6 +909,17 @@ const Products = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Excel İndirme Butonu - Alt Kısım */}
+      <div className="flex justify-end my-4">
+        <button
+          onClick={handleExportToExcel}
+          className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+        >
+          <MdFileDownload className="w-5 h-5 mr-2" />
+          Tüm Ürünleri Excel Olarak İndir
+        </button>
       </div>
 
       {/* Silme Onay Modalı */}

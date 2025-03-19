@@ -27,6 +27,10 @@ const Dashboard = () => {
     const [summaryData, setSummaryData] = useState(null);
     const [trendsData, setTrendsData] = useState(null);
     const [productStats, setProductStats] = useState(null);
+    const [categoryDistribution, setCategoryDistribution] = useState([]);
+    const [monthlyMovements, setMonthlyMovements] = useState([]);
+    const [totalStockStatus, setTotalStockStatus] = useState([]);
+    const [warehouseOccupancy, setWarehouseOccupancy] = useState(null);
     const [loading, setLoading] = useState(true);
     const [timeRange, setTimeRange] = useState('weekly');
 
@@ -37,7 +41,7 @@ const Dashboard = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [summaryRes, trendsRes, statsRes] = await Promise.all([
+            const [summaryRes, trendsRes, statsRes, distributionRes, monthlyMovementsRes, totalStockStatusRes, warehouseOccupancyRes] = await Promise.all([
                 axios.get('http://localhost:3000/api/dashboard/summary', {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
@@ -46,17 +50,51 @@ const Dashboard = () => {
                 }),
                 axios.get('http://localhost:3000/api/dashboard/product-stats', {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get('http://localhost:3000/api/dashboard/category-distribution', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`http://localhost:3000/api/dashboard/monthly-movements?timeRange=${timeRange}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`http://localhost:3000/api/dashboard/total-stock-status?timeRange=${timeRange}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get('http://localhost:3000/api/dashboard/warehouse-occupancy', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 })
-            ]);
+            ]).catch(error => {
+                console.error('API request error:', error);
+                if (error.response) {
+                    toast.error(`Sunucu hatası: ${error.response.data.message || 'Bilinmeyen hata'}`);
+                } else if (error.request) {
+                    toast.error('Sunucuya bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.');
+                } else {
+                    toast.error('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+                }
+                return [null, null, null, null, null, null, null];
+            });
 
-            if (summaryRes.data.success) {
+            if (summaryRes?.data?.success) {
                 setSummaryData(summaryRes.data.data);
             }
-            if (trendsRes.data.success) {
+            if (trendsRes?.data?.success) {
                 setTrendsData(trendsRes.data.data);
             }
-            if (statsRes.data.success) {
+            if (statsRes?.data?.success) {
                 setProductStats(statsRes.data.data);
+            }
+            if (distributionRes?.data?.success) {
+                setCategoryDistribution(distributionRes.data.data);
+            }
+            if (monthlyMovementsRes?.data?.success) {
+                setMonthlyMovements(monthlyMovementsRes.data.data);
+            }
+            if (totalStockStatusRes?.data?.success) {
+                setTotalStockStatus(totalStockStatusRes.data.data);
+            }
+            if (warehouseOccupancyRes?.data?.success) {
+                setWarehouseOccupancy(warehouseOccupancyRes.data.data);
             }
         } catch (error) {
             console.error('Dashboard veri hatası:', error);
@@ -165,6 +203,7 @@ const Dashboard = () => {
                 </Select>
             </div>
 
+            {/* İstatistik Kartları */}
             <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} lg={8}>
                     <Card loading={loading}>
@@ -197,266 +236,73 @@ const Dashboard = () => {
                         />
                     </Card>
                 </Col>
-
-                <Col xs={24} sm={12} lg={8}>
-                    <Card loading={loading}>
-                        <Statistic
-                            title="Haftalık Stok Hareketi"
-                            value={summaryData?.weeklyMovements}
-                            prefix={<SwapOutlined />}
-                        />
-                    </Card>
-                </Col>
-
-                <Col xs={24} sm={12} lg={8}>
-                    <Card loading={loading}>
-                        <Statistic
-                            title="Depolama Alanı Kullanımı"
-                            value={summaryData?.storageUsage}
-                            prefix={<DatabaseOutlined />}
-                            suffix="%"
-                        />
-                    </Card>
-                </Col>
-
-                <Col xs={24} sm={12} lg={8}>
-                    <Card loading={loading}>
-                        <Statistic
-                            title="Aktif Kullanıcılar"
-                            value={summaryData?.activeUsers}
-                            prefix={<UserOutlined />}
-                        />
-                    </Card>
-                </Col>
             </Row>
 
-            {/* Son Eklenenler ve Hareketler */}
+            {/* Depo Doluluk Oranı */}
             <Row gutter={[16, 16]} className="mt-6">
-                <Col xs={24} lg={12}>
-                    <Card title="Son Eklenen Ürünler" loading={loading}>
-                        <Table 
-                            columns={recentProductColumns}
-                            dataSource={trendsData?.recentProducts}
-                            pagination={false}
-                            size="small"
-                            rowKey="id"
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card title="Son Stok Hareketleri" loading={loading}>
-                        <Table 
-                            columns={recentMovementsColumns}
-                            dataSource={trendsData?.recentMovements}
-                            pagination={false}
-                            size="small"
-                            rowKey="id"
-                        />
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Grafikler */}
-            <Row gutter={[16, 16]} className="mt-6">
-                <Col xs={24} lg={14}>
-                    <Card title="Stok Hareketleri (Son 30 Gün)" loading={loading}>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={trendsData?.movements || []}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickFormatter={(date) => new Date(date).toLocaleDateString('tr-TR')}
-                                />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="in" 
-                                    name="Giriş"
-                                    stroke="#52c41a" 
-                                />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="out" 
-                                    name="Çıkış"
-                                    stroke="#f5222d" 
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={10}>
-                    <Card title="Kategori Dağılımı" loading={loading}>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={trendsData?.categories || []}
-                                    dataKey="totalQuantity"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={100}
-                                >
-                                    {(trendsData?.categories || []).map((entry, index) => (
-                                        <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={COLORS[index % COLORS.length]} 
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Kritik Stok ve Popüler Ürünler */}
-            <Row gutter={[16, 16]} className="mt-6">
-                <Col xs={24} lg={12}>
-                    <Card title="Kritik Stok Uyarıları" loading={loading}>
-                        <Table 
-                            dataSource={trendsData?.criticalStock}
-                            columns={[
-                                {
-                                    title: 'Ürün',
-                                    dataIndex: 'name',
-                                    key: 'name',
-                                },
-                                {
-                                    title: 'Kategori',
-                                    dataIndex: ['Category', 'name'],
-                                    key: 'category',
-                                },
-                                {
-                                    title: 'Mevcut Stok',
-                                    dataIndex: 'quantity',
-                                    key: 'quantity',
-                                    render: (quantity, record) => (
-                                        <Tag color={quantity <= record.minStockLevel ? 'red' : 'green'}>
-                                            {quantity}
-                                        </Tag>
-                                    ),
-                                }
-                            ]}
-                            pagination={false}
-                            size="small"
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card title="En Çok Hareket Gören Ürünler" loading={loading}>
-                        <Table 
-                            dataSource={trendsData?.popularProducts}
-                            columns={[
-                                {
-                                    title: 'Ürün',
-                                    dataIndex: ['Product', 'name'],
-                                    key: 'name',
-                                },
-                                {
-                                    title: 'Kategori',
-                                    dataIndex: ['Product', 'Category', 'name'],
-                                    key: 'category',
-                                },
-                                {
-                                    title: 'Hareket Sayısı',
-                                    dataIndex: 'movementCount',
-                                    key: 'movementCount',
-                                }
-                            ]}
-                            pagination={false}
-                            size="small"
-                        />
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Kategorilere Göre Stok Durumu */}
-            <Col xs={24} lg={12}>
-                <Card 
-                    title="Kategorilere Göre Stok Durumu" 
-                    loading={loading}
-                    className="shadow-sm"
-                >
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={categoryStockData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip />
-                            <Bar 
-                                dataKey="value" 
-                                name="Stok Miktarı"
-                            >
-                                {categoryStockData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={CHART_COLORS.bar[entry.name]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </Card>
-            </Col>
-
-            {/* Sipariş Trendleri */}
-            <Col xs={24} lg={12}>
-                <Card 
-                    title="Sipariş Trendleri" 
-                    loading={loading}
-                    className="shadow-sm"
-                >
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart 
-                            data={orderTrendData}
-                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="date" />
-                            <YAxis />
-                            <Tooltip />
-                            <Line 
-                                type="monotone" 
-                                dataKey="orders" 
-                                name="Sipariş Sayısı"
-                                stroke={CHART_COLORS.line}
-                                strokeWidth={2}
-                                dot={{ fill: CHART_COLORS.line, strokeWidth: 2 }}
-                                activeDot={{ r: 6 }}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </Card>
-            </Col>
-
-            {/* Kategorilere Göre Alan Kullanımı */}
-            <Col xs={24}>
-                <Card 
-                    title="Kategorilere Göre Alan Kullanımı" 
-                    loading={loading}
-                    className="shadow-sm"
-                >
-                    <Space direction="vertical" style={{ width: '100%' }} size="large">
-                        {spaceUsageData.map((item) => (
-                            <div key={item.category} style={{ marginBottom: '1rem' }}>
-                                <div className="flex justify-between mb-1">
-                                    <span className="text-gray-700">{item.category}</span>
-                                    <span className="text-gray-600">
-                                        {item.used} / {item.total} birim ({item.percentage}%)
-                                    </span>
+                <Col xs={24}>
+                    <Card title="Depo Doluluk Durumu" loading={loading}>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} md={12}>
+                                <div className="text-center mb-4">
+                                    <Progress
+                                        type="circle"
+                                        percent={warehouseOccupancy?.occupancyRate || 0}
+                                        format={percent => `${percent}%`}
+                                        strokeColor={{
+                                            '0%': '#87d068',
+                                            '50%': '#faad14',
+                                            '75%': '#ff7a45',
+                                            '90%': '#f5222d'
+                                        }}
+                                        size={200}
+                                    />
                                 </div>
-                                <Progress 
-                                    percent={item.percentage} 
-                                    showInfo={false}
-                                    strokeColor={CHART_COLORS.bar[item.category]}
-                                    trailColor="#f0f0f0"
-                                />
-                            </div>
-                        ))}
-                    </Space>
-                </Card>
-            </Col>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                    <Card type="inner" title="Alan Kullanımı">
+                                        <Row gutter={[16, 16]}>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Toplam Alan"
+                                                    value={warehouseOccupancy?.totalArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Kullanılan Alan"
+                                                    value={warehouseOccupancy?.occupiedArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Boş Alan"
+                                                    value={warehouseOccupancy?.availableArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                    valueStyle={{ color: '#3f8600' }}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Ürün Sayısı"
+                                                    value={warehouseOccupancy?.totalQuantity || 0}
+                                                    prefix={<ShopOutlined />}
+                                                />
+                                            </Col>
+                                        </Row>
+                                    </Card>
+                                </Space>
+                            </Col>
+                        </Row>
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Ürün İstatistikleri */}
             <Row gutter={[16, 16]} className="mt-6">
@@ -512,6 +358,149 @@ const Dashboard = () => {
                                 </Card>
                             </Col>
                         </Row>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Kategori Dağılımı */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Kategorilere Göre Ürün Dağılımı" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={categoryDistribution}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={150}
+                                        label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                    >
+                                        {categoryDistribution.map((entry, index) => (
+                                            <Cell 
+                                                key={`cell-${index}`} 
+                                                fill={COLORS[index % COLORS.length]} 
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        formatter={(value, name) => [`${value} ürün`, name]}
+                                    />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Aylık Ürün Hareketleri */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24} lg={12}>
+                    <Card 
+                        title="Ürün Giriş/Çıkış Miktarları" 
+                        loading={loading}
+                        className="shadow-sm"
+                        extra={
+                            <Select 
+                                value={timeRange} 
+                                style={{ width: 120 }} 
+                                onChange={value => setTimeRange(value)}
+                            >
+                                <Option value="daily">Son 7 Gün</Option>
+                                <Option value="weekly">Bu Ay</Option>
+                                <Option value="monthly">Bu Yıl</Option>
+                            </Select>
+                        }
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthlyMovements}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar dataKey="incoming" name="Giriş" fill="#4CAF50" />
+                                    <Bar dataKey="outgoing" name="Çıkış" fill="#f44336" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} lg={12}>
+                    <Card 
+                        title="Net Stok Değişimi" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={monthlyMovements}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="total" 
+                                        name="Net Değişim"
+                                        stroke="#2196F3" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Toplam Stok Durumu */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Toplam Stok Durumu" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={totalStockStatus}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis yAxisId="left" />
+                                    <YAxis yAxisId="right" orientation="right" />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line 
+                                        yAxisId="left"
+                                        type="monotone" 
+                                        dataKey="totalStock" 
+                                        name="Toplam Stok"
+                                        stroke="#4CAF50" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                    <Line 
+                                        yAxisId="right"
+                                        type="monotone" 
+                                        dataKey="productCount" 
+                                        name="Ürün Sayısı"
+                                        stroke="#FF9800" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </Card>
                 </Col>
             </Row>
