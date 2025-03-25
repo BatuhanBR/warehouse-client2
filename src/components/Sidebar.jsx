@@ -5,7 +5,8 @@ import {
   MdInventory, 
   MdSwapHoriz,
   MdPeople,
-  MdViewInAr
+  MdViewInAr,
+  MdGridView
 } from 'react-icons/md';
 
 const menuItems = [
@@ -37,6 +38,11 @@ const menuItems = [
     title: '3D DEPO GÖRÜNÜMÜ',
     path: 'warehouse-3d',
     icon: <MdViewInAr className="w-6 h-6" />
+  },
+  {
+    title: 'ASCII DEPO GÖRÜNÜMÜ',
+    path: 'warehouse-ascii',
+    icon: <MdGridView className="w-6 h-6" />
   }
 ];
 
