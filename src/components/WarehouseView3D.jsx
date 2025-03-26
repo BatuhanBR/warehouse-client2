@@ -20,12 +20,9 @@ const WarehouseView3D = () => {
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
     const rendererRef = useRef(null);
+    const controlsRef = useRef(null);
 
-    // Grid ayarlarını güncelle
-    const GRID_SIZE = 30;        // Grid boyutu
-    const GRID_DIVISIONS = 30;   // Grid bölünmeleri
-
-    // Raf boyutlarını güncelle
+    // Raf boyutları
     const SHELF_DIMENSIONS = {
         width: 4,        // 4 bölmelik genişlik
         height: 0.8,     // Her katın yüksekliği
@@ -34,66 +31,30 @@ const WarehouseView3D = () => {
         spacing: 0.02    // Bölmeler arası boşluk
     };
 
-    // Raf konumlarını tanımla (mavi çizgilerin olduğu yerler)
-    const SHELF_POSITIONS = [
-        // Üst sıra rafları (3 adet)
-        { x: -8, z: -8 },
-        { x: 0, z: -8 },
-        { x: 8, z: -8 },
-        
-        // Orta sıra rafları (4 adet)
-        { x: -12, z: 0 },
-        { x: -4, z: 0 },
-        { x: 4, z: 0 },
-        { x: 12, z: 0 },
-        
-        // Alt sıra rafları (3 adet)
-        { x: -8, z: 8 },
-        { x: 0, z: 8 },
-        { x: 8, z: 8 }
-    ];
-
-    // Raf aralıklarını güncelle - mavi noktalara göre
-    const GRID_SPACING = {
-        x: 3,  // Her raf arası 3 birim
-        y: 1,  // Katlar arası mesafe
-        z: 3   // Sıralar arası mesafe
-    };
-
-    // Materyal ve geometrileri önbellekleme
-    const CACHED_MATERIALS = {
-        metal: new THREE.MeshStandardMaterial({
-            color: 0x808080,
-            metalness: 0.7,
-            roughness: 0.3
-        }),
-        label: new THREE.SpriteMaterial(),
-        product: new THREE.MeshStandardMaterial({
-            color: 0x2196f3,
-            transparent: true,
-            opacity: 0.8
+    // Materyal önbelleği
+    const MATERIALS = {
+        metal: new THREE.MeshPhongMaterial({
+            color: 0xb0b0b0,
+            shininess: 60,
+            specular: 0x444444
         }),
         emptyCell: new THREE.LineBasicMaterial({
             color: 0x90caf9,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.5
         }),
         occupiedCell: new THREE.LineBasicMaterial({
             color: 0x2196f3,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.8
         })
     };
 
-    const CACHED_GEOMETRIES = {
+    // Geometri önbelleği
+    const GEOMETRIES = {
         platform: new THREE.BoxGeometry(
-            SHELF_DIMENSIONS.width + SHELF_DIMENSIONS.thickness,
+            SHELF_DIMENSIONS.width,
             SHELF_DIMENSIONS.thickness,
-            SHELF_DIMENSIONS.depth
-        ),
-        divider: new THREE.BoxGeometry(
-            SHELF_DIMENSIONS.thickness,
-            SHELF_DIMENSIONS.height,
             SHELF_DIMENSIONS.depth
         ),
         pillar: new THREE.BoxGeometry(
@@ -103,38 +64,10 @@ const WarehouseView3D = () => {
         )
     };
 
-    // API çağrısını güncelliyoruz
-    useEffect(() => {
-        const fetchLocations = async () => {
-            try {
-                const response = await axios.get('http://localhost:3000/api/locations', {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                // Gelen veriyi detaylı logla
-                console.log('Ham API yanıtı:', response);
-                console.log('Lokasyon verileri:', response.data);
-                
-                // Veri yapısını kontrol et ve düzenle
-                const locationData = Array.isArray(response.data) ? response.data : response.data.data;
-                console.log('İşlenmiş lokasyon verileri:', locationData);
-                
-                setLocations(locationData);
-                setLoading(false);
-            } catch (error) {
-                console.error('Lokasyonlar yüklenirken hata:', error);
-                setLoading(false);
-            }
-        };
-        fetchLocations();
-    }, []);
-
-    // Raf seçme fonksiyonu
+    // Raf seçme işlemi
     const handleRackSelect = async (rackNumber) => {
         try {
-            console.log('Selecting rack:', rackNumber); // Debug log
+            console.log('Raf seçildi:', rackNumber);
             
             const response = await axios.get(`http://localhost:3000/api/locations/rack/${rackNumber}`, {
                 headers: {
@@ -142,321 +75,272 @@ const WarehouseView3D = () => {
                 }
             });
 
-            console.log('Rack data:', response.data); // Debug log
+            console.log('Raf verisi:', response.data);
             
             if (response.data.success) {
+                // Mevcut rafı temizle
+                if (sceneRef.current) {
+                    const existingShelf = sceneRef.current.getObjectByName('currentShelf');
+                    if (existingShelf) {
+                        sceneRef.current.remove(existingShelf);
+                    }
+                }
+
                 setRackLocations(response.data.data || []);
                 setSelectedRack(rackNumber);
-            } else {
-                throw new Error('Invalid response format');
+
+                // Yeni rafı oluştur
+                const shelf = createShelf(rackNumber, response.data.data || []);
+                if (shelf && sceneRef.current) {
+                    shelf.name = 'currentShelf';
+                    sceneRef.current.add(shelf);
+                }
             }
         } catch (error) {
             console.error('Raf bilgileri yüklenirken hata:', error);
             toast.error('Raf bilgileri yüklenemedi');
-            // Hata durumunda state'leri sıfırla
-            setRackLocations([]);
-            setSelectedRack(null);
         }
     };
 
-    // Pozisyonlama mantığını güncelle
-    const calculatePosition = (rackNumber, level, position) => {
-        // Mavi noktalara göre pozisyonları hesapla
-        const positions = [
-            // İlk sıra (en üstteki 10 nokta)
-            {x: -12, z: -12}, {x: -9, z: -12}, {x: -6, z: -12}, {x: -3, z: -12},
-            {x: 0, z: -12}, {x: 3, z: -12}, {x: 6, z: -12}, {x: 9, z: -12},
-            {x: 12, z: -12}, {x: 15, z: -12},
-            
-            // İkinci sıra
-            {x: -12, z: -6}, {x: -9, z: -6}, {x: -6, z: -6}, {x: -3, z: -6},
-            {x: 0, z: -6}, {x: 3, z: -6}, {x: 6, z: -6}, {x: 9, z: -6},
-            {x: 12, z: -6}, {x: 15, z: -6},
-            
-            // Üçüncü sıra
-            {x: -12, z: 0}, {x: -9, z: 0}, {x: -6, z: 0}, {x: -3, z: 0},
-            {x: 0, z: 0}, {x: 3, z: 0}, {x: 6, z: 0}, {x: 9, z: 0},
-            {x: 12, z: 0}, {x: 15, z: 0},
-            
-            // Dördüncü sıra (en alttaki 10 nokta)
-            {x: -12, z: 6}, {x: -9, z: 6}, {x: -6, z: 6}, {x: -3, z: 6},
-            {x: 0, z: 6}, {x: 3, z: 6}, {x: 6, z: 6}, {x: 9, z: 6},
-            {x: 12, z: 6}, {x: 15, z: 6}
-        ];
+    // Raf oluşturma
+    const createShelf = (rackNumber, locations) => {
+        console.log('Raf oluşturuluyor:', rackNumber, locations);
+        
+        const shelfGroup = new THREE.Group();
 
-        // rackNumber'a göre pozisyon seç (0-39 arası)
-        const pos = positions[rackNumber - 1] || positions[0];
+        // Her kat için
+        for (let level = 1; level <= 4; level++) {
+            // Kat platformu
+            const platform = new THREE.Mesh(GEOMETRIES.platform, MATERIALS.metal);
+            platform.position.y = (level - 1) * SHELF_DIMENSIONS.height;
+            shelfGroup.add(platform);
 
-        return {
-            x: pos.x,
-            y: (level - 1) * GRID_SPACING.y,  // Katlar için y pozisyonu
-            z: pos.z
-        };
-    };
-
-    // Raf oluşturma fonksiyonunu güncelle
-    const createShelf = (location) => {
-        if (!location) return null;
-
-        try {
-            const { rackNumber } = location;
-            const shelfGroup = new THREE.Group();
-
-            // Raf ünitesini oluştur ve rackNumber'ı geçir
-            const shelfUnit = createShelfUnit(rackNumber, locations);
-            
-            // Rafı doğru konuma yerleştir
-            const shelfPosition = SHELF_POSITIONS[rackNumber - 1];
-            if (shelfPosition) {
-                shelfGroup.position.set(shelfPosition.x, 0, shelfPosition.z);
-            }
-
-            shelfGroup.add(shelfUnit);
-
-            // Ana raf etiketi (opsiyonel)
-            const mainLabel = createLabel(`Raf ${rackNumber}`);
-            mainLabel.position.set(0, SHELF_DIMENSIONS.height * 4 + 0.3, 0);
-            mainLabel.scale.set(2, 0.5, 1);
-            shelfGroup.add(mainLabel);
-
-            return shelfGroup;
-        } catch (error) {
-            console.error('Raf oluşturma hatası:', error, location);
-            return null;
-        }
-    };
-
-    // Raf ünitesini oluşturma fonksiyonu
-    const createShelfUnit = (rackNumber, locations) => {
-        const unit = new THREE.Group();
-
-        // Her kat için (0-3 arası, 4 kat)
-        for (let level = 0; level < 4; level++) {
-            // Kat platformu - cached geometri kullan
-            const platform = new THREE.Mesh(CACHED_GEOMETRIES.platform, CACHED_MATERIALS.metal);
-            platform.position.y = level * SHELF_DIMENSIONS.height;
-            unit.add(platform);
-
-            // Her kattaki bölme için etiketler ve bölmeler
+            // Her pozisyon için
             for (let position = 1; position <= 4; position++) {
-                // Bu hücreye ait location verisini bul
                 const locationData = locations.find(loc => 
                     loc.rackNumber === rackNumber && 
                     loc.level === level && 
                     loc.position === position
                 );
 
-                // Hücreyi oluştur
-                const cell = createCell(
-                    rackNumber,
-                    level,
-                    position,
-                    locationData?.isOccupied || false,
-                    locationData?.productData
-                );
+                console.log(`Hücre verisi (R${rackNumber}-${level}-${position}):`, locationData);
 
+                const cell = createCell(rackNumber, level, position, locationData);
+                
                 // Hücreyi konumlandır
                 cell.position.set(
                     -SHELF_DIMENSIONS.width/2 + (position-1) * (SHELF_DIMENSIONS.width/4) + SHELF_DIMENSIONS.width/8,
-                    level * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2,
+                    (level - 1) * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2,
                     0
                 );
 
-                unit.add(cell);
+                shelfGroup.add(cell);
             }
-
-            // Arka panel
-            const backPanel = new THREE.Mesh(CACHED_GEOMETRIES.divider, CACHED_MATERIALS.metal);
-            backPanel.scale.set(
-                SHELF_DIMENSIONS.width/SHELF_DIMENSIONS.thickness,
-                1,
-                1
-            );
-            backPanel.position.set(
-                0,
-                level * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2,
-                -SHELF_DIMENSIONS.depth/2
-            );
-            unit.add(backPanel);
         }
 
-        // Dikey destekler (köşeler) - cached geometri kullan
+        // Dikey destekler
         const corners = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
         corners.forEach(([x, z]) => {
-            const pillar = new THREE.Mesh(CACHED_GEOMETRIES.pillar, CACHED_MATERIALS.metal);
+            const pillar = new THREE.Mesh(GEOMETRIES.pillar, MATERIALS.metal);
             pillar.position.set(
                 x * (SHELF_DIMENSIONS.width/2),
-                (SHELF_DIMENSIONS.height * 4)/2,
+                SHELF_DIMENSIONS.height * 2,
                 z * (SHELF_DIMENSIONS.depth/2)
             );
-            unit.add(pillar);
+            shelfGroup.add(pillar);
         });
 
-        return unit;
+        return shelfGroup;
     };
 
-    // Etiket oluşturma fonksiyonunu optimize et
-    const createLabel = (() => {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 256;
-        canvas.height = 64;
-
-        return (text, size = 32) => {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.fillStyle = '#000000';
-            context.font = `${size}px Arial`;
-            context.textAlign = 'center';
-            context.fillText(text, canvas.width/2, canvas.height/2 + 12);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.SpriteMaterial({ map: texture });
-            const sprite = new THREE.Sprite(material);
-            
-            return sprite;
-        };
-    })();
-
-    // Hücre oluşturma fonksiyonu
-    const createCell = (rackNumber, level, position, isOccupied = false, productData = null) => {
+    // Hücre oluşturma
+    const createCell = (rackNumber, level, position, locationData) => {
         const cell = new THREE.Group();
-
-        // Hücre çerçevesi
+        
+        // Hücre geometrisi
         const cellGeometry = new THREE.BoxGeometry(
             SHELF_DIMENSIONS.width/4 - SHELF_DIMENSIONS.spacing,
             SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing,
             SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing
         );
 
+        // Hücre çerçevesi
         const edges = new THREE.EdgesGeometry(cellGeometry);
         const frame = new THREE.LineSegments(
             edges,
-            isOccupied ? CACHED_MATERIALS.occupiedCell : CACHED_MATERIALS.emptyCell
+            locationData?.isOccupied ? MATERIALS.occupiedCell : MATERIALS.emptyCell
         );
         cell.add(frame);
 
         // Eğer ürün varsa, ürün kutusunu ekle
-        if (isOccupied && productData) {
-            const productBox = createProductBox(productData);
-            cell.add(productBox);
+        if (locationData?.isOccupied && locationData?.Product) {
+            const product = createProduct(locationData.Product);
+            if (product) {
+                cell.add(product);
+            }
         }
 
-        // Hücre bilgilerini sakla
+        // Hücre verilerini sakla
         cell.userData = {
-            cellCode: `R${rackNumber.toString().padStart(2, '0')}-${level}-${position}`,
-            isOccupied,
-            productId: productData?.id || null
+            type: 'cell',
+            rackNumber,
+            level,
+            position,
+            locationData
         };
 
         return cell;
     };
 
-    // Ürün kutusu oluşturma fonksiyonu
-    const createProductBox = (productData) => {
-        const { dimensions } = productData;
-        const { width, height, depth } = JSON.parse(dimensions);
+    // Ürün oluşturma
+    const createProduct = (productData) => {
+        if (!productData) return null;
 
-        const boxGeometry = new THREE.BoxGeometry(
-            Math.min(width/100, SHELF_DIMENSIONS.width/4 - SHELF_DIMENSIONS.spacing),
-            Math.min(height/100, SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing),
-            Math.min(depth/100, SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing)
-        );
+        try {
+            // Ürün boyutlarını al (cm'den m'ye çevir)
+            const width = (parseFloat(productData.width) || 30) / 100;
+            const height = (parseFloat(productData.height) || 30) / 100;
+            const depth = (parseFloat(productData.length) || 30) / 100;
 
-        const box = new THREE.Mesh(boxGeometry, CACHED_MATERIALS.product);
-        box.userData.productData = productData;
-        
-        return box;
+            // Ürün rengini belirle
+            let color;
+            switch(productData.categoryId) {
+                case 1: color = 0x2196f3; break; // Elektronik - Mavi
+                case 2: color = 0x4caf50; break; // Beyaz Eşya - Yeşil
+                case 3: color = 0x795548; break; // Mobilya - Kahverengi
+                case 4: color = 0x9c27b0; break; // Tekstil - Mor
+                default: color = 0xff5722;       // Varsayılan - Turuncu
+            }
+
+            // Ürün materyali
+            const material = new THREE.MeshPhongMaterial({
+                color: color,
+                shininess: 30,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            // Ürün geometrisi
+            const geometry = new THREE.BoxGeometry(
+                Math.min(width, SHELF_DIMENSIONS.width/4 - SHELF_DIMENSIONS.spacing * 2),
+                Math.min(height, SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing * 2),
+                Math.min(depth, SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing * 2)
+            );
+
+            const product = new THREE.Mesh(geometry, material);
+            
+            // Ürün etiketini ekle
+            const label = createLabel(productData.name);
+            label.position.y = height/2 + 0.1;
+            product.add(label);
+
+            // Ürün verilerini sakla
+            product.userData = {
+                type: 'product',
+                productData
+            };
+
+            return product;
+        } catch (error) {
+            console.error('Ürün oluşturma hatası:', error);
+            return null;
+        }
     };
 
+    // Etiket oluşturma
+    const createLabel = (text) => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.fillStyle = '#000000';
+        context.font = '24px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, canvas.width/2, canvas.height/2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(0.5, 0.125, 1);
+
+        return sprite;
+    };
+
+    // Scene kurulumu
     useEffect(() => {
-        if (loading || !selectedRack) return;
+        if (!mountRef.current) return;
 
-        const container = mountRef.current;
-        if (!container) return;
-
-        // Scene setup
+        // Scene
         sceneRef.current = new THREE.Scene();
         sceneRef.current.background = new THREE.Color(0xf0f0f0);
 
-        // Camera setup
+        // Camera
         cameraRef.current = new THREE.PerspectiveCamera(
             45,
-            container.clientWidth / container.clientHeight,
+            mountRef.current.clientWidth / mountRef.current.clientHeight,
             0.1,
             1000
         );
-        cameraRef.current.position.set(30, 20, 30);
-        cameraRef.current.lookAt(0, 0, 0);
+        cameraRef.current.position.set(5, 5, 5);
 
         // Renderer
         rendererRef.current = new THREE.WebGLRenderer({ antialias: true });
-        rendererRef.current.setSize(container.clientWidth, container.clientHeight);
-        container.appendChild(rendererRef.current.domElement);
+        rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+        rendererRef.current.setPixelRatio(window.devicePixelRatio);
+        mountRef.current.appendChild(rendererRef.current.domElement);
 
         // Controls
-        const controls = new OrbitControls(cameraRef.current, rendererRef.current.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 20;
-        controls.maxDistance = 100;
-        controls.maxPolarAngle = Math.PI / 2;
-        controls.target.set(0, 0, 0);
+        controlsRef.current = new OrbitControls(cameraRef.current, rendererRef.current.domElement);
+        controlsRef.current.enableDamping = true;
+        controlsRef.current.dampingFactor = 0.05;
+        controlsRef.current.minDistance = 3;
+        controlsRef.current.maxDistance = 20;
 
         // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         sceneRef.current.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-        directionalLight.position.set(10, 20, 10);
-        directionalLight.castShadow = true;
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 5, 5);
         sceneRef.current.add(directionalLight);
 
-        // Rafları oluştur
-        if (Array.isArray(rackLocations) && rackLocations.length > 0) {
-            const shelf = createShelf({
-                rackNumber: selectedRack,
-                locations: rackLocations
-            });
-            if (shelf) {
-                sceneRef.current.add(shelf);
-            }
-        }
-
-        // Grid helper
-        const gridHelper = new THREE.GridHelper(GRID_SIZE, GRID_DIVISIONS, 0x888888, 0x888888);
+        // Grid
+        const gridHelper = new THREE.GridHelper(20, 20);
         sceneRef.current.add(gridHelper);
 
         // Animation loop
         const animate = () => {
             requestAnimationFrame(animate);
-            controls.update();
+            controlsRef.current.update();
             rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         animate();
 
         // Cleanup
         return () => {
-            if (container && rendererRef.current.domElement) {
-                container.removeChild(rendererRef.current.domElement);
+            if (mountRef.current && rendererRef.current.domElement) {
+                mountRef.current.removeChild(rendererRef.current.domElement);
             }
             rendererRef.current.dispose();
         };
-    }, [loading, selectedRack, rackLocations]);
+    }, []);
 
-    // Tıklama olaylarını güncelle
+    // Tıklama olayları
     useEffect(() => {
-        if (!cameraRef.current || !sceneRef.current) return;
+        if (!sceneRef.current || !cameraRef.current) return;
 
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
         const handleClick = (event) => {
-            // Sadece canvas'a tıklandığında işlem yap
-            if (event.target.tagName.toLowerCase() !== 'canvas') return;
-
-            const rect = event.target.getBoundingClientRect();
+            const canvas = rendererRef.current.domElement;
+            const rect = canvas.getBoundingClientRect();
+            
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -465,29 +349,35 @@ const WarehouseView3D = () => {
 
             if (intersects.length > 0) {
                 let object = intersects[0].object;
-                
-                // Hücreyi bul (parent zincirinde yukarı doğru ara)
-                while (object && !object.userData?.cellCode) {
+                while (object && !object.userData?.type) {
                     object = object.parent;
                 }
 
-                if (object?.userData?.cellCode) {
-                    handleCellClick(object.userData);
+                if (object?.userData?.type === 'cell') {
+                    setSelectedCell(object.userData);
+                    setIsModalOpen(true);
                 }
             }
         };
 
         const container = mountRef.current;
         container.addEventListener('click', handleClick);
-
         return () => container.removeEventListener('click', handleClick);
     }, []);
 
-    // Hücre tıklama işleyicisi
-    const handleCellClick = (cellData) => {
-        setSelectedCell(cellData);
-        setIsModalOpen(true);
-    };
+    // Window resize olayı
+    useEffect(() => {
+        const handleResize = () => {
+            if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+
+            cameraRef.current.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+            cameraRef.current.updateProjectionMatrix();
+            rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     return (
         <div style={{ position: 'relative' }}>
@@ -536,10 +426,6 @@ const WarehouseView3D = () => {
                     onClick={() => setIsModalOpen(true)}
                     size="large"
                     icon={<PlusOutlined />}
-                    style={{ 
-                        width: '150px',
-                        height: '40px'
-                    }}
                 >
                     Ürün İşlemleri
                 </Button>
