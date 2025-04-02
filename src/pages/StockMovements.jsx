@@ -32,7 +32,9 @@ const StockMovements = () => {
             title: 'Tarih',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            render: (date) => new Date(date).toLocaleString('tr-TR')
+            render: (date) => new Date(date).toLocaleString('tr-TR'),
+            sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+            defaultSortOrder: 'descend'
         },
         {
             title: 'İşlem Tipi',
@@ -43,12 +45,20 @@ const StockMovements = () => {
         {
             title: 'Ürün',
             dataIndex: ['Product', 'name'],
-            key: 'product'
+            key: 'product',
+            filteredValue: searchText ? [searchText] : null,
+            onFilter: (value, record) => {
+                const productName = record.Product?.name?.toLowerCase() || '';
+                const description = record.description?.toLowerCase() || '';
+                const searchValue = value.toLowerCase();
+                return productName.includes(searchValue) || description.includes(searchValue);
+            }
         },
         {
             title: 'Miktar',
             dataIndex: 'quantity',
-            key: 'quantity'
+            key: 'quantity',
+            sorter: (a, b) => a.quantity - b.quantity
         },
         {
             title: 'Lokasyon',
@@ -71,13 +81,21 @@ const StockMovements = () => {
             
             // Query parametrelerini oluştur
             const params = new URLSearchParams();
-            if (filters.type !== 'all') params.append('type', filters.type);
-            if (filters.productId !== 'all') params.append('productId', filters.productId);
-            if (filters.locationId !== 'all') params.append('locationId', filters.locationId);
+            if (filters.type && filters.type !== 'all') {
+                params.append('type', filters.type);
+            }
+            if (filters.productId && filters.productId !== 'all') {
+                params.append('productId', filters.productId);
+            }
+            if (filters.locationId && filters.locationId !== 'all') {
+                params.append('locationId', filters.locationId);
+            }
             if (filters.dateRange?.length === 2) {
                 params.append('startDate', filters.dateRange[0].format('YYYY-MM-DD'));
                 params.append('endDate', filters.dateRange[1].format('YYYY-MM-DD'));
             }
+
+            console.log('Fetching with params:', params.toString()); // Debug için
 
             const response = await axios.get(`http://localhost:3000/api/stock-movements?${params.toString()}`, {
                 headers: {
@@ -86,6 +104,7 @@ const StockMovements = () => {
             });
 
             if (response.data.success) {
+                console.log('Received movements:', response.data.data); // Debug için
                 setMovements(response.data.data);
                 calculateStats();
             }
@@ -149,6 +168,7 @@ const StockMovements = () => {
 
     // Filtre değişikliklerini handle et
     const handleFilterChange = (key, value) => {
+        console.log('Filter change:', key, value); // Debug için
         setFilters(prev => ({ ...prev, [key]: value }));
     };
 
@@ -229,126 +249,136 @@ const StockMovements = () => {
                 <h1 className="text-2xl font-semibold mb-4">Stok Hareketleri</h1>
                 
                 {/* Filtreler */}
-                <div className="flex gap-4 mb-4 flex-wrap">
-                    <Button 
-                        type="primary" 
-                        icon={<MdAdd />}
-                        onClick={() => setShowModal(true)}
-                    >
-                        Yeni Hareket
-                    </Button>
-                    <Select 
-                        placeholder="İşlem Tipi"
-                        style={{ width: 200 }}
-                        value={filters.type}
-                        onChange={(value) => handleFilterChange('type', value)}
-                    >
-                        <Select.Option value="all">Tümü</Select.Option>
-                        <Select.Option value="IN">Giriş</Select.Option>
-                        <Select.Option value="OUT">Çıkış</Select.Option>
-                    </Select>
-                    <Select
-                        placeholder="Ürün Seçin"
-                        style={{ width: 200 }}
-                        value={filters.productId}
-                        onChange={(value) => handleFilterChange('productId', value)}
-                    >
-                        <Select.Option value="all">Tüm Ürünler</Select.Option>
-                        {products.map(product => (
-                            <Select.Option key={product.id} value={product.id}>
-                                {product.name}
-                            </Select.Option>
-                        ))}
-                    </Select>
-                    <Select
-                        placeholder="Lokasyon Seçin"
-                        style={{ width: 200 }}
-                        value={filters.locationId}
-                        onChange={(value) => handleFilterChange('locationId', value)}
-                    >
-                        <Select.Option value="all">Tüm Lokasyonlar</Select.Option>
-                        {locations.map(location => (
-                            <Select.Option key={location.id} value={location.id}>
-                                {`${location.code} - Raf ${location.rackNumber}, Seviye ${location.level}, Poz. ${location.position}`}
-                            </Select.Option>
-                        ))}
-                    </Select>
-                    <DatePicker.RangePicker 
-                        style={{ width: 300 }}
-                        value={filters.dateRange}
-                        onChange={(dates) => handleFilterChange('dateRange', dates)}
-                    />
-                    <Button 
-                        onClick={exportToExcel}
-                        icon={<DownloadOutlined />}
-                    >
-                        Excel'e Aktar
-                    </Button>
-                    <Button 
-                        onClick={handlePrint}
-                        icon={<PrinterOutlined />}
-                    >
-                        Yazdır
-                    </Button>
-                </div>
+                <Row gutter={[16, 16]} className="mb-4">
+                    <Col>
+                        <Button 
+                            type="primary" 
+                            icon={<MdAdd />}
+                            onClick={() => setShowModal(true)}
+                        >
+                            Yeni Hareket
+                        </Button>
+                    </Col>
+                    <Col>
+                        <Select 
+                            placeholder="İşlem Tipi"
+                            style={{ width: 200 }}
+                            value={filters.type}
+                            onChange={(value) => handleFilterChange('type', value)}
+                        >
+                            <Select.Option value="all">Tümü</Select.Option>
+                            <Select.Option value="IN">Giriş</Select.Option>
+                            <Select.Option value="OUT">Çıkış</Select.Option>
+                        </Select>
+                    </Col>
+                    <Col>
+                        <Select
+                            placeholder="Ürün Seçin"
+                            style={{ width: 200 }}
+                            value={filters.productId}
+                            onChange={(value) => handleFilterChange('productId', value)}
+                            showSearch
+                            optionFilterProp="children"
+                        >
+                            <Select.Option value="all">Tüm Ürünler</Select.Option>
+                            {products.map(product => (
+                                <Select.Option key={product.id} value={product.id}>
+                                    {product.name}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </Col>
+                    <Col>
+                        <DatePicker.RangePicker
+                            style={{ width: 300 }}
+                            value={filters.dateRange}
+                            onChange={(dates) => handleFilterChange('dateRange', dates)}
+                            format="DD/MM/YYYY"
+                        />
+                    </Col>
+                    <Col>
+                        <Input.Search
+                            placeholder="Ürün adı veya açıklama ile ara"
+                            style={{ width: 300 }}
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                            onSearch={value => setSearchText(value)}
+                        />
+                    </Col>
+                    <Col>
+                        <Button 
+                            onClick={exportToExcel}
+                            icon={<DownloadOutlined />}
+                        >
+                            Excel'e Aktar
+                        </Button>
+                    </Col>
+                    <Col>
+                        <Button 
+                            onClick={handlePrint}
+                            icon={<PrinterOutlined />}
+                        >
+                            Yazdır
+                        </Button>
+                    </Col>
+                </Row>
+
+                {/* İstatistikler */}
+                <Row gutter={16} className="mb-4">
+                    <Col span={8}>
+                        <Card>
+                            <Statistic
+                                title="Toplam Giriş"
+                                value={stats.totalIn}
+                                prefix={<ArrowUpOutlined style={{ color: '#52c41a' }} />}
+                            />
+                        </Card>
+                    </Col>
+                    <Col span={8}>
+                        <Card>
+                            <Statistic
+                                title="Toplam Çıkış"
+                                value={stats.totalOut}
+                                prefix={<ArrowDownOutlined style={{ color: '#f5222d' }} />}
+                            />
+                        </Card>
+                    </Col>
+                    <Col span={8}>
+                        <Card>
+                            <Statistic
+                                title="Net Değişim"
+                                value={stats.totalIn - stats.totalOut}
+                                prefix={stats.totalIn - stats.totalOut >= 0 ? 
+                                    <ArrowUpOutlined style={{ color: '#52c41a' }} /> : 
+                                    <ArrowDownOutlined style={{ color: '#f5222d' }} />}
+                            />
+                        </Card>
+                    </Col>
+                </Row>
+
+                {/* Tablo */}
+                <Table 
+                    columns={columns}
+                    dataSource={movements}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{
+                        total: movements.length,
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Toplam ${total} kayıt`
+                    }}
+                    onChange={(pagination, filters, sorter) => {
+                        console.log('Table params:', { pagination, filters, sorter });
+                    }}
+                />
+
+                <StockMovementModal
+                    visible={showModal}
+                    onCancel={() => setShowModal(false)}
+                    onSubmit={handleAddMovement}
+                />
             </div>
-
-            {/* Arama inputu */}
-            <Input.Search
-                placeholder="Açıklama veya ürün adı ile ara"
-                style={{ width: 300, marginBottom: 16 }}
-                value={searchText}
-                onChange={e => setSearchText(e.target.value)}
-                onSearch={value => {
-                    const filtered = movements.filter(item => 
-                        item.description?.toLowerCase().includes(value.toLowerCase()) ||
-                        item.Product?.name.toLowerCase().includes(value.toLowerCase())
-                    );
-                    setMovements(filtered);
-                }}
-            />
-
-            {/* Tablo */}
-            <Table 
-                columns={columns}
-                dataSource={movements}
-                loading={loading}
-                rowKey="id"
-                pagination={{
-                    total: movements.length,
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showTotal: (total) => `Toplam ${total} kayıt`
-                }}
-            />
-
-            <StockMovementModal
-                visible={showModal}
-                onCancel={() => setShowModal(false)}
-                onSubmit={handleAddMovement}
-            />
-
-            {/* İstatistik kartları */}
-            <Row gutter={16} className="mb-4">
-                <Col span={6}>
-                    <Card>
-                        <Statistic 
-                            title="Toplam Giriş" 
-                            value={stats.totalIn} 
-                            prefix={<ArrowUpOutlined style={{ color: 'green' }} />}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card>
-                        <Statistic 
-                            title="Toplam Çıkış" 
-                            value={stats.totalOut} 
-                            prefix={<ArrowDownOutlined style={{ color: 'red' }} />}
-                        />
-                    </Card>
-                </Col>
-            </Row>
         </div>
     );
 };
