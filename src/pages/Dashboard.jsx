@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select, Popover, List, Typography, Empty } from 'antd';
 import { 
     BarChart, Bar, LineChart, Line, PieChart, Pie, ResponsiveContainer, 
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell 
@@ -10,6 +10,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
 const { Option } = Select;
+const { Text } = Typography;
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const CHART_COLORS = {
@@ -33,25 +34,48 @@ const Dashboard = () => {
     const [warehouseOccupancy, setWarehouseOccupancy] = useState(null);
     const [loading, setLoading] = useState(true);
     const [timeRange, setTimeRange] = useState('weekly');
+    const [lowStockProducts, setLowStockProducts] = useState([]);
+    const [recentMovements, setRecentMovements] = useState([]);
+    const [topValuedProducts, setTopValuedProducts] = useState([]);
+    const [overallCategoryDistribution, setOverallCategoryDistribution] = useState([]);
 
     useEffect(() => {
         fetchData();
     }, [timeRange]);
 
+    useEffect(() => {
+        fetchOverallCategoryDistribution();
+    }, []);
+
+    const fetchLowStockProducts = async () => {
+        try {
+            const response = await axios.get('http://localhost:3000/api/dashboard/low-stock-products', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (response.data.success) {
+                setLowStockProducts(response.data.data);
+            }
+        } catch (error) {
+            console.error('Düşük stoklu ürünler alınırken hata:', error);
+            toast.error('Düşük stoklu ürünler yüklenemedi');
+        }
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [summaryRes, trendsRes, statsRes, distributionRes, monthlyMovementsRes, totalStockStatusRes, warehouseOccupancyRes] = await Promise.all([
-                axios.get('http://localhost:3000/api/dashboard/summary', {
+            const [summaryRes, trendsRes, statsRes, distributionRes, monthlyMovementsRes, totalStockStatusRes, warehouseOccupancyRes, recentMovementsRes, topValuedProductsRes] = await Promise.all([
+                axios.get(`http://localhost:3000/api/dashboard/summary?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
                 axios.get(`http://localhost:3000/api/dashboard/trends?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
-                axios.get('http://localhost:3000/api/dashboard/product-stats', {
+                axios.get(`http://localhost:3000/api/dashboard/product-stats?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
-                axios.get('http://localhost:3000/api/dashboard/category-distribution', {
+                axios.get(`http://localhost:3000/api/dashboard/category-distribution?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
                 axios.get(`http://localhost:3000/api/dashboard/monthly-movements?timeRange=${timeRange}`, {
@@ -60,9 +84,16 @@ const Dashboard = () => {
                 axios.get(`http://localhost:3000/api/dashboard/total-stock-status?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
-                axios.get('http://localhost:3000/api/dashboard/warehouse-occupancy', {
+                axios.get(`http://localhost:3000/api/dashboard/warehouse-occupancy?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                })
+                }),
+                axios.get(`http://localhost:3000/api/dashboard/recent-movements?timeRange=${timeRange}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`http://localhost:3000/api/dashboard/top-valued-products?timeRange=${timeRange}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                fetchLowStockProducts()
             ]).catch(error => {
                 console.error('API request error:', error);
                 if (error.response) {
@@ -72,7 +103,7 @@ const Dashboard = () => {
                 } else {
                     toast.error('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
                 }
-                return [null, null, null, null, null, null, null];
+                return [null, null, null, null, null, null, null, null, null];
             });
 
             if (summaryRes?.data?.success) {
@@ -96,11 +127,32 @@ const Dashboard = () => {
             if (warehouseOccupancyRes?.data?.success) {
                 setWarehouseOccupancy(warehouseOccupancyRes.data.data);
             }
+            if (recentMovementsRes?.data?.success) {
+                setRecentMovements(recentMovementsRes.data.data);
+            }
+            if (topValuedProductsRes?.data?.success) {
+                setTopValuedProducts(topValuedProductsRes.data.data);
+            }
         } catch (error) {
             console.error('Dashboard veri hatası:', error);
             toast.error('Veriler yüklenirken bir hata oluştu');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchOverallCategoryDistribution = async () => {
+        try {
+            const response = await axios.get('http://localhost:3000/api/dashboard/category-distribution?timeRange=all', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (response.data.success) {
+                setOverallCategoryDistribution(response.data.data);
+            }
+        } catch (error) {
+            console.error('Genel kategori dağılımı alınırken hata:', error);
+            toast.error('Genel kategori dağılımı yüklenemedi');
         }
     };
 
@@ -188,6 +240,31 @@ const Dashboard = () => {
         }
     ];
 
+    const lowStockContent = (
+        <List
+            size="small"
+            dataSource={lowStockProducts}
+            renderItem={item => (
+                <List.Item>
+                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                        <Space>
+                            <Text strong>{item.name}</Text>
+                            <Tag color={item.quantity === 0 ? 'red' : 'orange'}>
+                                {item.quantity} / {item.minStockLevel}
+                            </Tag>
+                        </Space>
+                        <Space size="large">
+                            <Text type="secondary">SKU: {item.sku}</Text>
+                            <Text type="secondary">Konum: {item.Location?.code || 'Belirsiz'}</Text>
+                            <Tag color="blue">{item.Category?.name}</Tag>
+                        </Space>
+                    </Space>
+                </List.Item>
+            )}
+            style={{ maxHeight: '400px', overflow: 'auto', width: '400px' }}
+        />
+    );
+
     return (
         <div className="p-6 bg-gray-50">
             <div className="flex justify-between items-center mb-6">
@@ -208,9 +285,10 @@ const Dashboard = () => {
                 <Col xs={24} sm={12} lg={8}>
                     <Card loading={loading}>
                         <Statistic
-                            title="Toplam Ürün"
-                            value={summaryData?.totalProducts}
+                            title="Toplam Palet Sayısı"
+                            value={warehouseOccupancy?.totalProducts || 0}
                             prefix={<ShopOutlined />}
+                            suffix="Palet"
                         />
                     </Card>
                 </Col>
@@ -222,18 +300,40 @@ const Dashboard = () => {
                             value={summaryData?.stockValue}
                             prefix={<DollarOutlined />}
                             suffix="TL"
+                            formatter={value => {
+                                if (value) {
+                                    return new Intl.NumberFormat('tr-TR').format(Number(value).toFixed(2));
+                                }
+                                return '0';
+                            }}
                         />
+                        <div className="mt-2 text-sm text-gray-500">
+                            Palet Başına: {summaryData?.stockValue && warehouseOccupancy?.totalProducts ? 
+                                new Intl.NumberFormat('tr-TR').format(
+                                    (summaryData.stockValue / warehouseOccupancy.totalProducts).toFixed(2)
+                                ) : '0'} TL
+                        </div>
                     </Card>
                 </Col>
 
                 <Col xs={24} sm={12} lg={8}>
                     <Card loading={loading}>
-                        <Statistic
-                            title="Düşük Stoklu Ürünler"
-                            value={summaryData?.lowStockProducts}
-                            prefix={<WarningOutlined />}
-                            valueStyle={{ color: '#cf1322' }}
-                        />
+                        <Popover 
+                            content={lowStockContent}
+                            title="Düşük Stoklu Paletler Detayı"
+                            trigger="hover"
+                            placement="bottom"
+                        >
+                            <div style={{ cursor: 'pointer' }}>
+                                <Statistic
+                                    title="Düşük Stoklu Paletler"
+                                    value={summaryData?.lowStockProducts}
+                                    prefix={<WarningOutlined />}
+                                    valueStyle={{ color: '#cf1322' }}
+                                    suffix="Palet"
+                                />
+                            </div>
+                        </Popover>
                     </Card>
                 </Col>
             </Row>
@@ -364,9 +464,9 @@ const Dashboard = () => {
 
             {/* Kategori Dağılımı */}
             <Row gutter={[16, 16]} className="mt-6">
-                <Col xs={24}>
+                <Col xs={24} md={12}>
                     <Card 
-                        title="Kategorilere Göre Ürün Dağılımı" 
+                        title="Zaman Aralığına Göre Kategori Dağılımı" 
                         loading={loading}
                         className="shadow-sm"
                     >
@@ -390,7 +490,11 @@ const Dashboard = () => {
                                         ))}
                                     </Pie>
                                     <Tooltip 
-                                        formatter={(value, name) => [`${value} ürün`, name]}
+                                        formatter={(value, name, props) => [
+                                            <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
+                                            name
+                                        ]}
+                                        separator=""
                                     />
                                     <Legend />
                                 </PieChart>
@@ -398,43 +502,50 @@ const Dashboard = () => {
                         </div>
                     </Card>
                 </Col>
-            </Row>
-
-            {/* Aylık Ürün Hareketleri */}
-            <Row gutter={[16, 16]} className="mt-6">
-                <Col xs={24} lg={12}>
+                <Col xs={24} md={12}>
                     <Card 
-                        title="Ürün Giriş/Çıkış Miktarları" 
+                        title="Genel Kategori Dağılımı" 
                         loading={loading}
                         className="shadow-sm"
-                        extra={
-                            <Select 
-                                value={timeRange} 
-                                style={{ width: 120 }} 
-                                onChange={value => setTimeRange(value)}
-                            >
-                                <Option value="daily">Son 7 Gün</Option>
-                                <Option value="weekly">Bu Ay</Option>
-                                <Option value="monthly">Bu Yıl</Option>
-                            </Select>
-                        }
                     >
                         <div style={{ height: 400 }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={monthlyMovements}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Legend />
-                                    <Bar dataKey="incoming" name="Giriş" fill="#4CAF50" />
-                                    <Bar dataKey="outgoing" name="Çıkış" fill="#f44336" />
-                                </BarChart>
+                                <PieChart margin={{ top: 0, right: 30, bottom: 0, left: 30 }}>
+                                    <Pie
+                                        data={overallCategoryDistribution}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={120}
+                                        label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        labelLine={{ strokeWidth: 1 }}
+                                    >
+                                        {overallCategoryDistribution.map((entry, index) => (
+                                            <Cell 
+                                                key={`cell-${index}`} 
+                                                fill={COLORS[index % COLORS.length]} 
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        formatter={(value, name, props) => [
+                                            <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
+                                            name
+                                        ]}
+                                        separator=""
+                                    />
+                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                                </PieChart>
                             </ResponsiveContainer>
                         </div>
                     </Card>
                 </Col>
-                <Col xs={24} lg={12}>
+            </Row>
+
+            {/* Net Stok Değişimi */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
                     <Card 
                         title="Net Stok Değişimi" 
                         loading={loading}
@@ -463,6 +574,131 @@ const Dashboard = () => {
                 </Col>
             </Row>
 
+            {/* Son Stok Hareketleri */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Son Stok Hareketleri" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Table
+                            dataSource={recentMovements}
+                            columns={[
+                                {
+                                    title: 'Hareket',
+                                    dataIndex: 'type',
+                                    key: 'type',
+                                    render: (type) => (
+                                        <Tag color={type === 'IN' ? 'green' : 'red'}>
+                                            {type === 'IN' ? 'Giriş' : 'Çıkış'}
+                                        </Tag>
+                                    ),
+                                },
+                                {
+                                    title: 'Ürün',
+                                    dataIndex: ['product', 'name'],
+                                    key: 'product',
+                                },
+                                {
+                                    title: 'SKU',
+                                    dataIndex: ['product', 'sku'],
+                                    key: 'sku',
+                                },
+                                {
+                                    title: 'Kategori',
+                                    dataIndex: ['product', 'category'],
+                                    key: 'category',
+                                },
+                                {
+                                    title: 'Miktar',
+                                    dataIndex: 'quantity',
+                                    key: 'quantity',
+                                },
+                                {
+                                    title: 'Lokasyon',
+                                    dataIndex: 'location',
+                                    key: 'location',
+                                },
+                                {
+                                    title: 'İşlemi Yapan',
+                                    dataIndex: 'creator',
+                                    key: 'creator',
+                                },
+                                {
+                                    title: 'Tarih',
+                                    dataIndex: 'createdAt',
+                                    key: 'createdAt',
+                                    render: (date) => new Date(date).toLocaleDateString('tr-TR', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })
+                                }
+                            ]}
+                            pagination={false}
+                            scroll={{ x: true }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* En Değerli 5 Ürün */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="En Değerli 5 Ürün" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Table
+                            dataSource={topValuedProducts}
+                            columns={[
+                                {
+                                    title: 'Ürün Adı',
+                                    dataIndex: 'name',
+                                    key: 'name',
+                                },
+                                {
+                                    title: 'SKU',
+                                    dataIndex: 'sku',
+                                    key: 'sku',
+                                },
+                                {
+                                    title: 'Kategori',
+                                    dataIndex: 'categoryName',
+                                    key: 'category',
+                                },
+                                {
+                                    title: 'Lokasyon',
+                                    dataIndex: 'locationCode',
+                                    key: 'location',
+                                },
+                                {
+                                    title: 'Miktar',
+                                    dataIndex: 'quantity',
+                                    key: 'quantity',
+                                },
+                                {
+                                    title: 'Ürün Geliri',
+                                    dataIndex: 'totalValue',
+                                    key: 'totalValue',
+                                    render: (value, record) => {
+                                        return `${parseFloat(value).toLocaleString('tr-TR')} TL`;
+                                    },
+                                    defaultSortOrder: 'descend',
+                                    sorter: (a, b) => a.totalValue - b.totalValue,
+                                }
+                            ]}
+                            pagination={false}
+                            scroll={{ x: true }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
             {/* Toplam Stok Durumu */}
             <Row gutter={[16, 16]} className="mt-6">
                 <Col xs={24}>
@@ -484,7 +720,7 @@ const Dashboard = () => {
                                         yAxisId="left"
                                         type="monotone" 
                                         dataKey="totalStock" 
-                                        name="Toplam Stok"
+                                        name="Toplam Ürün Sayısı"
                                         stroke="#4CAF50" 
                                         strokeWidth={2}
                                         dot={{ r: 4 }}
@@ -492,8 +728,8 @@ const Dashboard = () => {
                                     <Line 
                                         yAxisId="right"
                                         type="monotone" 
-                                        dataKey="productCount" 
-                                        name="Ürün Sayısı"
+                                        dataKey="palletCount" 
+                                        name="Palet Sayısı"
                                         stroke="#FF9800" 
                                         strokeWidth={2}
                                         dot={{ r: 4 }}
