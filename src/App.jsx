@@ -15,6 +15,7 @@ import Contact from './pages/Contact';
 import About from './pages/About';
 import Warehouse3D from './pages/Warehouse3D';
 import WarehouseASCII from './pages/WarehouseASCII';
+import Expenses from './pages/Expenses';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import ResetPassword from './pages/ResetPassword';
@@ -36,6 +37,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/stock-movements" element={<StockMovements />} />
+            <Route path="/expenses" element={<Expenses />} />
             <Route path="/warehouse-3d" element={<Warehouse3D />} />
             <Route path="/warehouse-ascii" element={<WarehouseASCII />} />
             <Route path="/users" element={<Users />} />

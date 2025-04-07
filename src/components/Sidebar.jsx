@@ -6,7 +6,8 @@ import {
   MdSwapHoriz,
   MdPeople,
   MdViewInAr,
-  MdGridView
+  MdGridView,
+  MdAttachMoney
 } from 'react-icons/md';
 
 const menuItems = [
@@ -28,6 +29,11 @@ const menuItems = [
     title: 'STOCK HAREKETLERİ',
     path: 'stock-movements',
     icon: <MdSwapHoriz className="w-6 h-6" />
+  },
+  {
+    title: 'GİDERLER',
+    path: 'expenses',
+    icon: <MdAttachMoney className="w-6 h-6" />
   },
   {
     title: 'KULLANICILAR',
