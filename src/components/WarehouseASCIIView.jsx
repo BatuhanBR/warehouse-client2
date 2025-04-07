@@ -1,15 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Select, Card, Table, Button, Modal } from 'antd';
+import { Select, Card, Table, Button, Modal, ConfigProvider, theme as antTheme } from 'antd';
 import { toast } from 'react-hot-toast';
 import shelfService from '../services/shelfService';
 
-const WarehouseASCIIView = () => {
+const { defaultAlgorithm, darkAlgorithm } = antTheme;
+
+const WarehouseASCIIView = ({ isDark }) => {
     const [loading, setLoading] = useState(false);
     const [selectedRack, setSelectedRack] = useState(null);
     const [rackLocations, setRackLocations] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isProductModalVisible, setIsProductModalVisible] = useState(false);
+
+    // Tema konfigürasyonu
+    const themeConfig = {
+        algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
+        token: {
+            colorPrimary: '#1890ff',
+            borderRadius: 8,
+        },
+        components: {
+            Card: {
+                colorBgContainer: isDark ? 'rgba(30, 32, 37, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorBorderSecondary: isDark ? '#303030' : '#f0f0f0',
+            },
+            Table: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+            },
+            Select: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)', 
+            }
+        }
+    };
 
     // Raf seçilince verileri yükle
     const handleRackSelect = async (rackNumber) => {
@@ -88,7 +113,7 @@ const WarehouseASCIIView = () => {
     // ASCII raf görünümünü oluştur
     const renderASCIIShelf = () => {
         if (!selectedRack || rackLocations.length === 0) {
-            return <div className="text-center mt-4">Lütfen bir raf seçin</div>;
+            return <div className={`text-center mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Lütfen bir raf seçin</div>;
         }
 
         // Tüm raf seviyelerini ve pozisyonları bul
@@ -179,7 +204,7 @@ const WarehouseASCIIView = () => {
                     lineHeight: '1.2',
                     textAlign: 'center',
                     display: 'inline-block'
-                }} className="bg-gray-100 p-4 rounded overflow-auto">
+                }} className={`p-4 rounded overflow-auto ${isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-800'}`}>
                     {asciiRows.join('\n')}
                 </pre>
             </div>
@@ -490,60 +515,52 @@ const WarehouseASCIIView = () => {
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                    <span className="text-2xl mr-2">🏬</span> Depo Raf Görünümü
-                    <span className="ml-2 text-sm font-normal bg-indigo-100 text-indigo-800 px-2 py-1 rounded-md">ASCII</span>
-                </h1>
-            </div>
-            
-            <Card 
-                className="mb-6 shadow-md" 
-                title={
-                    <div className="flex items-center text-lg font-bold">
-                        <span className="text-blue-600 mr-2">📋</span> Raf Yönetimi
+        <ConfigProvider theme={themeConfig}>
+            <div className={`warehouse-ascii-view ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                <div className="mb-4 flex justify-between items-center">
+                    <div>
+                        <label className={`block mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Raf Seçimi:</label>
+                        <Select
+                            placeholder="Raf Seçin"
+                            style={{ width: 200 }}
+                            onChange={handleRackSelect}
+                            loading={loading}
+                            className={isDark ? 'dark-select' : ''}
+                        >
+                            {[...Array(10)].map((_, index) => (
+                                <Select.Option key={index + 1} value={index + 1}>
+                                    Raf {index + 1}
+                                </Select.Option>
+                            ))}
+                        </Select>
                     </div>
-                }
-            >
-                <div className="flex flex-col md:flex-row md:items-center">
-                    <span className="mb-2 md:mb-0 md:mr-4 font-medium">Raf Seçin: </span>
-                    <Select
-                        style={{ width: 200 }}
-                        placeholder="Raf Seçin"
-                        onChange={handleRackSelect}
-                        value={selectedRack}
-                        loading={loading}
-                        className="w-full md:w-auto"
-                    >
-                        {[...Array(10)].map((_, i) => (
-                            <Select.Option key={i + 1} value={i + 1}>
-                                Raf {i + 1}
-                            </Select.Option>
-                        ))}
-                    </Select>
-                    
                     {selectedRack && (
-                        <div className="mt-3 md:mt-0 md:ml-4">
+                        <div>
                             <Button 
-                                type="default" 
-                                onClick={() => handleRackSelect(selectedRack)}
-                                loading={loading}
-                                icon={<span className="mr-1">🔄</span>}
+                                type="primary"
+                                onClick={() => window.print()}
+                                className={`${isDark ? 'bg-blue-600 border-blue-700' : 'bg-blue-500 border-blue-600'}`}
                             >
-                                Yenile
+                                Yazdır
                             </Button>
                         </div>
                     )}
                 </div>
-            </Card>
-            
-            {renderASCIIShelf()}
-            
-            {renderLocationsTable()}
-            
-            {renderProductModal()}
-        </div>
+
+                {renderASCIIShelf()}
+
+                {selectedRack && rackLocations.length > 0 && (
+                    <Card 
+                        title={`Raf ${selectedRack} İçeriği`} 
+                        className={`mt-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}
+                    >
+                        {renderLocationsTable()}
+                    </Card>
+                )}
+
+                {renderProductModal()}
+            </div>
+        </ConfigProvider>
     );
 };
 

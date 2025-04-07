@@ -38,7 +38,7 @@ function Login() {
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        navigate('/dashboard', { replace: true });
+        navigate('/welcome', { replace: true });
       }
     } catch (error) {
       console.error('Login error:', error);

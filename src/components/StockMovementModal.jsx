@@ -52,14 +52,21 @@ const StockMovementModal = ({ visible, onCancel, onSubmit }) => {
     const handleSubmit = async (values) => {
         try {
             setLoading(true);
-            await onSubmit({
+            console.log('Stok hareketi değerleri:', values); // Debug için
+            
+            // Eksik değerler ve sayısal değerler için dönüşümler
+            const formattedValues = {
                 ...values,
-                productId: selectedProduct?.id
-            });
+                productId: parseInt(values.productId),
+                quantity: parseInt(values.quantity),
+                locationId: parseInt(values.locationId) // locationId'yi sayısal formata dönüştür
+            };
+            
+            await onSubmit(formattedValues);
             form.resetFields();
         } catch (error) {
-            console.error('Stok hareketi kaydedilirken hata:', error);
-            toast.error('Stok hareketi kaydedilemedi');
+            console.error('Form gönderim hatası:', error);
+            toast.error('Bir hata oluştu!');
         } finally {
             setLoading(false);
         }

@@ -17,9 +17,17 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import productService from '../services/productService';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { Table, Tag } from 'antd';
+import { Table, Tag, ConfigProvider, theme as antTheme } from 'antd';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+
+const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
 const Products = () => {
+  const { theme } = useTheme();
+  const { t } = useLanguage();
+  const isDark = theme === 'dark';
+  
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -616,6 +624,30 @@ const Products = () => {
     }
   };
 
+  // Ant Design tema konfigürasyonu
+  const themeConfig = {
+    algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
+    token: {
+      colorPrimary: '#1890ff',
+      borderRadius: 8,
+    },
+    components: {
+      Card: {
+        colorBgContainer: isDark ? 'rgba(30, 32, 37, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+        colorBorderSecondary: isDark ? '#303030' : '#f0f0f0',
+        boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+      },
+      Table: {
+        colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+        colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+      },
+      Typography: {
+        colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+        colorTextSecondary: isDark ? '#a6a6a6' : 'rgba(0, 0, 0, 0.45)',
+      }
+    }
+  };
+
   // Loading durumu için
   if (loading) {
     return (
@@ -630,211 +662,162 @@ const Products = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Üst Başlık ve Butonlar */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Ürünler {selectedProducts.length > 0 && 
-            <span className="text-sm font-normal text-gray-500">
-              ({selectedProducts.length} ürün seçili)
-            </span>
-          }
-        </h1>
-        <div className="flex space-x-2">
-          {selectedProducts.length > 0 && (
-            <>
-              <button
-                onClick={() => setSelectedProducts([])}
-                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <MdLayersClear className="w-5 h-5 mr-1" />
-                Seçimi Temizle
-              </button>
-              <CategoryDropdown />
-              <button
-                onClick={() => {
-                    if (selectedProducts.length === 0) {
-                        toast.error('Lütfen silinecek ürünleri seçin');
-                        return;
-                    }
-                    handleBulkDelete(selectedProducts);
-                }}
-                className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-              >
-                <MdDeleteSweep className="w-5 h-5 mr-1" />
-                Toplu Sil ({selectedProducts.length})
-              </button>
-            </>
-          )}
-          <button
-            onClick={handleExportToExcel}
-            className="flex items-center px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-          >
-            <MdFileDownload className="w-5 h-5 mr-1" />
-            Excel İndir
-          </button>
-          <button
-            onClick={handleAddProduct}
-            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            <MdAdd className="w-5 h-5 mr-2" />
-            Yeni Ürün
-          </button>
-        </div>
-      </div>
-
-      {/* Filtreler ve Arama */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-lg shadow-sm">
-        <div className="relative">
-          <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Ürün adı, SKU veya açıklama ile ara..."
-            className="pl-10 w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          />
-        </div>
+    <ConfigProvider theme={themeConfig}>
+      <div className={`container p-4 ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+        <h1 className={`text-2xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-800'}`}>Ürün Yönetimi</h1>
         
-        <select
-          className="p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          value={filters.category}
-          onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-        >
-          <option value="all">Tüm Kategoriler</option>
-          {uniqueCategories.map(category => (
-            <option key={category} value={category.toLowerCase()}>
-              {category}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          value={filters.stockStatus}
-          onChange={(e) => setFilters({ ...filters, stockStatus: e.target.value })}
-        >
-          <option value="all">Tüm Stok Durumları</option>
-          <option value="normal">Normal Stok</option>
-          <option value="low">Düşük Stok</option>
-          <option value="out">Stok Yok</option>
-        </select>
-
-        {/* Yeni raf filtresi */}
-        <select
-          className="p-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          value={filters.rackNumber}
-          onChange={(e) => setFilters({ ...filters, rackNumber: e.target.value })}
-        >
-          <option value="all">Tüm Raflar</option>
-          {[...Array(10)].map((_, i) => (
-            <option key={i + 1} value={i + 1}>
-              Raf {i + 1}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Filtreleme Özeti */}
-      {(filters.search || filters.category !== 'all' || filters.stockStatus !== 'all') && (
-        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">
-              Filtrelenen sonuçlar: {filteredProducts.length} ürün
-            </span>
-            {filters.search && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-                Arama: {filters.search}
-              </span>
+        {/* Üst Bölüm - Butonlar ve Filtreler */}
+        <div className="flex flex-col sm:flex-row justify-between mb-4">
+          {/* Butonlar */}
+          <div className="flex flex-wrap gap-2 mb-4 sm:mb-0">
+            <button 
+              onClick={handleAddProduct}
+              className={`flex items-center bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md shadow transition-colors ${isDark ? 'hover:bg-blue-700' : 'hover:bg-blue-600'}`}
+            >
+              <MdAdd className="mr-1" size={20} /> Yeni Ürün
+            </button>
+            
+            {selectedProducts.length > 0 && (
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setSelectedProducts([])}
+                  className={`flex items-center bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md shadow transition-colors ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-600'}`}
+                >
+                  <MdLayersClear className="mr-1" size={20} /> Seçimi Temizle
+                </button>
+                
+                <button 
+                  onClick={() => handleBulkDelete(selectedProducts)}
+                  className={`flex items-center bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md shadow transition-colors ${isDark ? 'hover:bg-red-700' : 'hover:bg-red-600'}`}
+                >
+                  <MdDeleteSweep className="mr-1" size={20} /> Toplu Sil
+                </button>
+                
+                <CategoryDropdown />
+              </div>
             )}
-            {filters.category !== 'all' && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                Kategori: {filters.category}
-              </span>
-            )}
-            {filters.stockStatus !== 'all' && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                Stok: {filters.stockStatus === 'low' ? 'Düşük' : filters.stockStatus === 'out' ? 'Yok' : 'Normal'}
-              </span>
-            )}
+            
+            <button 
+              onClick={handleExportToExcel}
+              className={`flex items-center bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md shadow transition-colors ${isDark ? 'hover:bg-green-700' : 'hover:bg-green-600'}`}
+            >
+              <MdFileDownload className="mr-1" size={20} /> Excel'e Aktar
+            </button>
           </div>
-          <button
-            onClick={() => setFilters({
-              search: '',
-              category: 'all',
-              stockStatus: 'all'
-            })}
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Filtreleri Temizle
-          </button>
-        </div>
-      )}
-
-      {/* Ürün Tablosu */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table 
-            columns={columns} 
-            dataSource={paginatedProducts}
-            rowKey="id"
-            pagination={{
-              current: pagination.currentPage,
-              pageSize: pagination.itemsPerPage,
-              total: filteredProducts.length,
-              onChange: handlePageChange
-            }}
-          />
-        </div>
-        
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <MdSearch className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Sonuç Bulunamadı</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Arama kriterlerinize uygun ürün bulunamadı.
-            </p>
-          </div>
-        )}
-
-        {/* Sayfalama */}
-        <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-          <div className="flex items-center justify-between">
-            {/* Mobil Sayfalama */}
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button 
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                Önceki
-              </button>
-              <button 
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                Sonraki
-              </button>
+          
+          {/* Filtreler */}
+          <div className="flex flex-wrap gap-2">
+            {/* Arama kutusu */}
+            <div className={`relative w-64 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+              <input
+                type="text"
+                placeholder="Ürün ara..."
+                value={filters.search}
+                onChange={(e) => setFilters({...filters, search: e.target.value})}
+                className={`border rounded-md py-2 px-3 pl-10 w-full outline-none focus:border-blue-400 transition-colors ${
+                  isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
+                }`}
+              />
+              <MdSearch className="absolute left-3 top-2.5 text-gray-400" size={20} />
             </div>
+            
+            {/* Kategori Filtresi */}
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters({...filters, category: e.target.value})}
+              className={`border rounded-md py-2 px-3 outline-none focus:border-blue-400 transition-colors ${
+                isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
+              }`}
+            >
+              <option value="all">Tüm Kategoriler</option>
+              <option value="Elektronik">Elektronik</option>
+              <option value="Gıda">Gıda</option>
+              <option value="Kozmetik">Kozmetik</option>
+              <option value="Kitap">Kitap</option>
+              <option value="Giyim">Giyim</option>
+              <option value="Spor">Spor</option>
+              <option value="Ev & Yaşam">Ev & Yaşam</option>
+              <option value="Oyuncak">Oyuncak</option>
+              <option value="Ofis">Ofis</option>
+              <option value="Bahçe">Bahçe</option>
+            </select>
+            
+            {/* Stok Filtresi */}
+            <select
+              value={filters.stockStatus}
+              onChange={(e) => setFilters({...filters, stockStatus: e.target.value})}
+              className={`border rounded-md py-2 px-3 outline-none focus:border-blue-400 transition-colors ${
+                isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
+              }`}
+            >
+              <option value="all">Tüm Stok Durumları</option>
+              <option value="inStock">Stokta Var</option>
+              <option value="lowStock">Düşük Stok</option>
+              <option value="outOfStock">Tükendi</option>
+            </select>
+            
+            {/* Raf Filtresi */}
+            <select
+              value={filters.rackNumber}
+              onChange={(e) => setFilters({...filters, rackNumber: e.target.value})}
+              className={`border rounded-md py-2 px-3 outline-none focus:border-blue-400 transition-colors ${
+                isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
+              }`}
+            >
+              <option value="all">Tüm Raflar</option>
+              {Array.from(new Set(products.filter(p => p.Location).map(p => p.Location.code))).map(code => (
+                <option key={code} value={code}>{code}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-            {/* Desktop Sayfalama */}
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div className="flex items-center">
-                <span className="text-sm text-gray-700 mr-4">
+        {/* Ürün Tablosu */}
+        <div className={`rounded-lg shadow-sm overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="overflow-x-auto">
+            <Table 
+              columns={columns} 
+              dataSource={paginatedProducts}
+              rowKey="id"
+              pagination={{
+                current: pagination.currentPage,
+                pageSize: pagination.itemsPerPage,
+                total: filteredProducts.length,
+                onChange: handlePageChange
+              }}
+            />
+          </div>
+          
+          {filteredProducts.length === 0 && (
+            <div className={`text-center py-12 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+              <MdSearch className={`mx-auto h-12 w-12 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+              <h3 className={`mt-2 text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>Sonuç Bulunamadı</h3>
+              <p className={`mt-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Arama kriterlerinize uygun ürün bulunamadı.
+              </p>
+            </div>
+          )}
+
+          {/* Sayfalama */}
+          <div className={`px-4 py-3 border-t ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} sm:px-6`}>
+            <div className="flex items-center justify-between">
+              <div className={`flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                <span className="text-sm mr-4">
                   Sayfa başına göster
                 </span>
                 <select
                   value={pagination.itemsPerPage}
                   onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                  className="border-gray-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className={`border rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                    isDark ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-700'
+                  }`}
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={25}>25</option>
                   <option value={50}>50</option>
                 </select>
-                <span className="text-sm text-gray-700 ml-4">
+                <span className="text-sm ml-4">
                   Toplam <span className="font-medium">{filteredProducts.length}</span> üründen{' '}
                   <span className="font-medium">
                     {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-
@@ -850,7 +833,11 @@ const Products = () => {
                   <button
                     onClick={() => handlePageChange(1)}
                     disabled={pagination.currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border text-sm font-medium ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500'
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400'
+                    }`}
                   >
                     İlk
                   </button>
@@ -872,8 +859,12 @@ const Products = () => {
                           onClick={() => handlePageChange(pageNumber)}
                           className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
                             ${isCurrentPage 
-                              ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              ? isDark
+                                ? 'z-10 bg-blue-900 border-blue-800 text-blue-300'
+                                : 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                              : isDark
+                                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                             }`}
                         >
                           {pageNumber}
@@ -886,7 +877,11 @@ const Products = () => {
                       return (
                         <span
                           key={pageNumber}
-                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            isDark 
+                              ? 'bg-gray-700 border-gray-600 text-gray-400'
+                              : 'border-gray-300 bg-white text-gray-700'
+                          }`}
                         >
                           ...
                         </span>
@@ -900,7 +895,11 @@ const Products = () => {
                   <button
                     onClick={() => handlePageChange(pagination.totalPages)}
                     disabled={pagination.currentPage === pagination.totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border text-sm font-medium ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500'
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400'
+                    }`}
                   >
                     Son
                   </button>
@@ -909,36 +908,25 @@ const Products = () => {
             </div>
           </div>
         </div>
+
+        {/* Silme Onay Modalı */}
+        <DeleteConfirmModal
+          isOpen={deleteModal.isOpen}
+          onClose={() => setDeleteModal({ isOpen: false, productId: null, productName: '' })}
+          onConfirm={confirmDelete}
+          itemName={deleteModal.productName}
+        />
+
+        {/* Ürün Modalı */}
+        <ProductModal
+          visible={showModal}
+          onCancel={handleModalCancel}
+          onSubmit={handleModalSubmit}
+          initialData={selectedProduct}
+          mode={modalMode}
+        />
       </div>
-
-      {/* Excel İndirme Butonu - Alt Kısım */}
-      <div className="flex justify-end my-4">
-        <button
-          onClick={handleExportToExcel}
-          className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-        >
-          <MdFileDownload className="w-5 h-5 mr-2" />
-          Tüm Ürünleri Excel Olarak İndir
-        </button>
-      </div>
-
-      {/* Silme Onay Modalı */}
-      <DeleteConfirmModal
-        isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, productId: null, productName: '' })}
-        onConfirm={confirmDelete}
-        itemName={deleteModal.productName}
-      />
-
-      {/* Ürün Modalı */}
-      <ProductModal
-        visible={showModal}
-        onCancel={handleModalCancel}
-        onSubmit={handleModalSubmit}
-        initialData={selectedProduct}
-        mode={modalMode}
-      />
-    </div>
+    </ConfigProvider>
   );
 };
 

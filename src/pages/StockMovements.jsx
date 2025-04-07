@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Select, DatePicker, Space, Row, Col, Card, Statistic, Input } from 'antd';
+import { Table, Button, Select, DatePicker, Space, Row, Col, Card, Statistic, Input, ConfigProvider, theme as antTheme } from 'antd';
 import { MdAdd, MdFilterList } from 'react-icons/md';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
@@ -7,8 +7,16 @@ import dayjs from 'dayjs';
 import StockMovementModal from '../components/StockMovementModal';
 import * as XLSX from 'xlsx';
 import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined, PrinterOutlined } from '@ant-design/icons';
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+
+const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
 const StockMovements = () => {
+    const { theme } = useTheme();
+    const { t } = useLanguage();
+    const isDark = theme === 'dark';
+    
     const [movements, setMovements] = useState([]);
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState([]); // Ürün listesi için
@@ -243,143 +251,214 @@ const StockMovements = () => {
         }
     }, [movements]);
 
+    // Ant Design tema konfigürasyonu
+    const themeConfig = {
+        algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
+        token: {
+            colorPrimary: '#1890ff',
+            borderRadius: 8,
+        },
+        components: {
+            Card: {
+                colorBgContainer: isDark ? 'rgba(30, 32, 37, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorBorderSecondary: isDark ? '#303030' : '#f0f0f0',
+                boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+            },
+            Table: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+            },
+            DatePicker: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)', 
+            },
+            Select: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+            }
+        }
+    };
+
     return (
-        <div className="p-6">
-            <div className="mb-6">
-                <h1 className="text-2xl font-semibold mb-4">Stok Hareketleri</h1>
-                
-                {/* Filtreler */}
-                <Row gutter={[16, 16]} className="mb-4">
-                    <Col>
+        <ConfigProvider theme={themeConfig}>
+            <div className={`container p-4 ${isDark ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                    <h1 className={`text-2xl font-bold mb-4 sm:mb-0 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                        Stok Hareketleri
+                    </h1>
+                    <div className="flex items-center space-x-2">
                         <Button 
                             type="primary" 
-                            icon={<MdAdd />}
+                            icon={<MdAdd />} 
                             onClick={() => setShowModal(true)}
+                            className={`${isDark ? 'bg-blue-600 border-blue-700' : 'bg-blue-500 border-blue-600'}`}
                         >
                             Yeni Hareket
                         </Button>
-                    </Col>
-                    <Col>
-                        <Select 
-                            placeholder="İşlem Tipi"
-                            style={{ width: 200 }}
-                            value={filters.type}
-                            onChange={(value) => handleFilterChange('type', value)}
-                        >
-                            <Select.Option value="all">Tümü</Select.Option>
-                            <Select.Option value="IN">Giriş</Select.Option>
-                            <Select.Option value="OUT">Çıkış</Select.Option>
-                        </Select>
-                    </Col>
-                    <Col>
-                        <Select
-                            placeholder="Ürün Seçin"
-                            style={{ width: 200 }}
-                            value={filters.productId}
-                            onChange={(value) => handleFilterChange('productId', value)}
-                            showSearch
-                            optionFilterProp="children"
-                        >
-                            <Select.Option value="all">Tüm Ürünler</Select.Option>
-                            {products.map(product => (
-                                <Select.Option key={product.id} value={product.id}>
-                                    {product.name}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                    </Col>
-                    <Col>
-                        <DatePicker.RangePicker
-                            style={{ width: 300 }}
-                            value={filters.dateRange}
-                            onChange={(dates) => handleFilterChange('dateRange', dates)}
-                            format="DD/MM/YYYY"
-                        />
-                    </Col>
-                    <Col>
-                        <Input.Search
-                            placeholder="Ürün adı veya açıklama ile ara"
-                            style={{ width: 300 }}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            onSearch={value => setSearchText(value)}
-                        />
-                    </Col>
-                    <Col>
                         <Button 
-                            onClick={exportToExcel}
-                            icon={<DownloadOutlined />}
-                        >
-                            Excel'e Aktar
-                        </Button>
-                    </Col>
-                    <Col>
-                        <Button 
+                            icon={<PrinterOutlined />} 
                             onClick={handlePrint}
-                            icon={<PrinterOutlined />}
+                            className={`${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'}`}
                         >
                             Yazdır
                         </Button>
+                        <Button 
+                            icon={<DownloadOutlined />} 
+                            onClick={exportToExcel}
+                            className={`${isDark ? 'bg-green-700 text-white border-green-800' : 'bg-green-500 text-white border-green-600'}`}
+                        >
+                            Excel'e Aktar
+                        </Button>
+                    </div>
+                </div>
+
+                {/* İstatistik Kartları */}
+                <Row gutter={[16, 16]} className="mb-6">
+                    <Col xs={24} md={8}>
+                        <Card className={`text-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <Statistic
+                                title={<span className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Toplam Giriş</span>}
+                                value={stats.totalIn}
+                                valueStyle={{ color: '#3f8600' }}
+                                prefix={<ArrowUpOutlined />}
+                                suffix="birim"
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} md={8}>
+                        <Card className={`text-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <Statistic
+                                title={<span className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Toplam Çıkış</span>}
+                                value={stats.totalOut}
+                                valueStyle={{ color: '#cf1322' }}
+                                prefix={<ArrowDownOutlined />}
+                                suffix="birim"
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} md={8}>
+                        <Card className={`text-center ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <Statistic
+                                title={<span className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Net Değişim</span>}
+                                value={stats.totalIn - stats.totalOut}
+                                valueStyle={{ color: stats.totalIn - stats.totalOut >= 0 ? '#3f8600' : '#cf1322' }}
+                                prefix={stats.totalIn - stats.totalOut >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                                suffix="birim"
+                            />
+                        </Card>
                     </Col>
                 </Row>
 
-                {/* İstatistikler */}
-                <Row gutter={16} className="mb-4">
-                    <Col span={8}>
-                        <Card>
-                            <Statistic
-                                title="Toplam Giriş"
-                                value={stats.totalIn}
-                                prefix={<ArrowUpOutlined style={{ color: '#52c41a' }} />}
+                {/* Filtreler */}
+                <Card className={`mb-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <Row gutter={[16, 16]} className="mb-4">
+                        <Col xs={24} sm={12} md={6} lg={5}>
+                            <label className={`block mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                İşlem Tipi
+                            </label>
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.type}
+                                onChange={(value) => handleFilterChange('type', value)}
+                                className={isDark ? 'ant-select-dark' : ''}
+                            >
+                                <Select.Option value="all">Tümü</Select.Option>
+                                <Select.Option value="IN">Giriş</Select.Option>
+                                <Select.Option value="OUT">Çıkış</Select.Option>
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6} lg={5}>
+                            <label className={`block mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                Ürün
+                            </label>
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.productId}
+                                onChange={(value) => handleFilterChange('productId', value)}
+                                className={isDark ? 'ant-select-dark' : ''}
+                            >
+                                <Select.Option value="all">Tüm Ürünler</Select.Option>
+                                {products.map(product => (
+                                    <Select.Option key={product.id} value={product.id}>
+                                        {product.name}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6} lg={5}>
+                            <label className={`block mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                Lokasyon
+                            </label>
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.locationId}
+                                onChange={(value) => handleFilterChange('locationId', value)}
+                                className={isDark ? 'ant-select-dark' : ''}
+                            >
+                                <Select.Option value="all">Tüm Lokasyonlar</Select.Option>
+                                {locations.map(location => (
+                                    <Select.Option key={location.id} value={location.id}>
+                                        {location.code} (R:{location.rackNumber}, S:{location.level})
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6} lg={9}>
+                            <label className={`block mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                Tarih Aralığı
+                            </label>
+                            <DatePicker.RangePicker
+                                style={{ width: '100%' }}
+                                value={filters.dateRange}
+                                onChange={(dates) => handleFilterChange('dateRange', dates)}
+                                className={isDark ? 'ant-picker-dark' : ''}
                             />
-                        </Card>
-                    </Col>
-                    <Col span={8}>
-                        <Card>
-                            <Statistic
-                                title="Toplam Çıkış"
-                                value={stats.totalOut}
-                                prefix={<ArrowDownOutlined style={{ color: '#f5222d' }} />}
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs={24}>
+                            <Input 
+                                placeholder="Ürün adı veya açıklama ara..." 
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{ width: '100%' }}
+                                prefix={<MdFilterList />}
+                                className={`${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                             />
-                        </Card>
-                    </Col>
-                    <Col span={8}>
-                        <Card>
-                            <Statistic
-                                title="Net Değişim"
-                                value={stats.totalIn - stats.totalOut}
-                                prefix={stats.totalIn - stats.totalOut >= 0 ? 
-                                    <ArrowUpOutlined style={{ color: '#52c41a' }} /> : 
-                                    <ArrowDownOutlined style={{ color: '#f5222d' }} />}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
+                        </Col>
+                    </Row>
+                </Card>
 
                 {/* Tablo */}
-                <Table 
-                    columns={columns}
-                    dataSource={movements}
-                    loading={loading}
-                    rowKey="id"
-                    pagination={{
-                        total: movements.length,
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showTotal: (total) => `Toplam ${total} kayıt`
-                    }}
-                    onChange={(pagination, filters, sorter) => {
-                        console.log('Table params:', { pagination, filters, sorter });
-                    }}
-                />
+                <Card className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <Table 
+                        columns={columns} 
+                        dataSource={movements} 
+                        rowKey="id" 
+                        loading={loading}
+                        pagination={{ 
+                            position: ['bottomCenter'],
+                            showSizeChanger: true,
+                            pageSizeOptions: ['10', '20', '50', '100'],
+                            showTotal: (total) => `Toplam ${total} kayıt`
+                        }}
+                        className={isDark ? 'ant-table-dark' : ''}
+                    />
+                </Card>
 
-                <StockMovementModal
-                    visible={showModal}
-                    onCancel={() => setShowModal(false)}
-                    onSubmit={handleAddMovement}
-                />
+                {/* Stok Hareketi Ekleme Modalı */}
+                {showModal && (
+                    <StockMovementModal
+                        visible={showModal}
+                        onCancel={() => setShowModal(false)}
+                        onSubmit={handleAddMovement}
+                        products={products}
+                        locations={locations}
+                        isDark={isDark}
+                    />
+                )}
             </div>
-        </div>
+        </ConfigProvider>
     );
 };
 

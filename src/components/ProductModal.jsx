@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, InputNumber, Row, Col, Space, Button, Select, DatePicker } from 'antd';
+import { Modal, Form, Input, InputNumber, Row, Col, Space, Button, Select, DatePicker, Tooltip } from 'antd';
 import { toast } from 'react-hot-toast';
 import dayjs from 'dayjs';
 import axios from 'axios';
@@ -8,7 +8,9 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [categories, setCategories] = useState([]);
-    const [locations, setLocations] = useState([]);
+    const [racks, setRacks] = useState([]); // Raflar
+    const [cells, setCells] = useState([]); // Hücreler
+    const [selectedRack, setSelectedRack] = useState(null);
 
     // Kategori bazlı günlük depolama ücretleri
     const categoryStorageRates = {
@@ -24,7 +26,15 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
         'Bahçe': 100         // Büyük ürünler
     };
 
-    // Kategorileri ve lokasyonları yükle
+    // Kategorileri ve rafları yükle
+    useEffect(() => {
+        if (visible) {
+            fetchCategories();
+            fetchRacks();
+        }
+    }, [visible]);
+
+    // Kategorileri getir
     const fetchCategories = async () => {
         try {
             const response = await axios.get('http://localhost:3000/api/categories/list', {
@@ -41,28 +51,63 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
         }
     };
 
-    const fetchLocations = async () => {
+    // Rafları getir
+    const fetchRacks = async () => {
         try {
-            const response = await axios.get('http://localhost:3000/api/locations', {
+            console.log('Fetching racks from locations API...');
+            const response = await axios.get('http://localhost:3000/api/locations/racks', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
-            // Sadece boş lokasyonları filtrele
-            const availableLocations = response.data.data.filter(loc => !loc.isOccupied || (initialData && initialData.locationId === loc.id));
-            setLocations(availableLocations);
+            console.log('Racks response:', response.data);
+            if (response.data.success) {
+                setRacks(response.data.data || []);
+            } else {
+                toast.error('Raf verisi bulunamadı');
+            }
         } catch (error) {
-            console.error('Lokasyonlar yüklenirken hata:', error);
-            toast.error('Lokasyonlar yüklenemedi');
+            console.error('Raflar yüklenirken hata:', error);
+            toast.error('Raflar yüklenemedi');
         }
     };
 
-    useEffect(() => {
-        if (visible) {
-            fetchCategories();
-            fetchLocations();
+    // Seçilen rafın hücrelerini getir
+    const fetchCells = async (rackId) => {
+        try {
+            // Önce seçilen rafı bul
+            const selectedRack = racks.find(rack => rack.id === rackId);
+            if (!selectedRack) {
+                console.error('Seçilen raf bulunamadı:', rackId);
+                toast.error('Seçilen raf bulunamadı');
+                return;
+            }
+
+            console.log(`Fetching cells for rack position: ${selectedRack.position}`);
+            const response = await axios.get(`http://localhost:3000/api/locations/racks/${selectedRack.position}/cells`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            
+            console.log('Cells response:', response.data);
+            if (response.data.success) {
+                setCells(response.data.data || []);
+            } else {
+                toast.error('Hücre verisi bulunamadı');
+            }
+        } catch (error) {
+            console.error('Hücreler yüklenirken hata:', error);
+            toast.error('Hücreler yüklenemedi');
         }
-    }, [visible]);
+    };
+
+    // Raf seçildiğinde
+    const handleRackChange = (rackId) => {
+        setSelectedRack(rackId);
+        form.setFieldsValue({ cellId: undefined }); // Hücre seçimini sıfırla
+        fetchCells(rackId);
+    };
 
     useEffect(() => {
         if (visible) {
@@ -175,7 +220,7 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
                 height: parseFloat(values.height) || 0,
                 length: parseFloat(values.length) || 0,
                 categoryId: parseInt(values.categoryId),
-                locationId: values.locationId ? parseInt(values.locationId) : null,
+                locationId: parseInt(values.cellId), // cellId, location tablosundaki bir id
                 storageStartDate: values.storageStartDate ? values.storageStartDate.format('YYYY-MM-DD') : null,
                 expectedStorageDuration: parseInt(values.expectedStorageDuration) || 30,
                 createdBy: parseInt(localStorage.getItem('userId')) || 1,
@@ -272,7 +317,22 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
                 </Row>
 
                 <Row gutter={16}>
-                    <Col span={8}>
+                    <Col span={12}>
+                        <Form.Item 
+                            name="categoryId" 
+                            label="Kategori" 
+                            rules={[{ required: true, message: 'Lütfen kategori seçin' }]}
+                        >
+                            <Select placeholder="Kategori seçin" onChange={handleCategoryChange}>
+                                {categories.map(cat => (
+                                    <Select.Option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
                         <Form.Item 
                             name="quantity" 
                             label="Stok Miktarı" 
@@ -281,36 +341,52 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
                             <InputNumber style={{ width: '100%' }} min={0} />
                         </Form.Item>
                     </Col>
-                    <Col span={8}>
+                </Row>
+
+                <Row gutter={16}>
+                    <Col span={12}>
                         <Form.Item 
-                            name="price" 
-                            label="Toplam Depolama Ücreti (TL)" 
-                            tooltip="Bu ücret otomatik olarak hesaplanır"
+                            name="rackId" 
+                            label="Raf" 
+                            rules={[{ required: true, message: 'Lütfen raf seçin' }]}
                         >
-                            <InputNumber 
-                                style={{ width: '100%' }} 
-                                min={0} 
-                                precision={2}
-                                disabled
-                                formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                parser={value => value.replace(/₺\s?|(,*)/g, '')}
-                            />
+                            <Select 
+                                placeholder="Raf seçin"
+                                onChange={handleRackChange}
+                                loading={racks.length === 0}
+                            >
+                                {racks.map(rack => (
+                                    <Select.Option key={rack.id} value={rack.id}>
+                                        Raf {rack.position}
+                                    </Select.Option>
+                                ))}
+                            </Select>
                         </Form.Item>
                     </Col>
-                    <Col span={8}>
+                    <Col span={12}>
                         <Form.Item 
-                            name="dailyStorageRate" 
-                            label="Günlük Depolama Ücreti (TL)"
-                            tooltip="Kategori seçimine göre otomatik belirlenir"
+                            name="cellId" 
+                            label="Hücre" 
+                            rules={[{ required: true, message: 'Lütfen hücre seçin' }]}
                         >
-                            <InputNumber 
-                                style={{ width: '100%' }} 
-                                min={0} 
-                                precision={2}
-                                disabled
-                                formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                parser={value => value.replace(/₺\s?|(,*)/g, '')}
-                            />
+                            <Select 
+                                placeholder={selectedRack ? "Hücre seçin" : "Önce raf seçin"}
+                                disabled={!selectedRack || cells.length === 0}
+                                loading={selectedRack && cells.length === 0}
+                            >
+                                {cells.map(cell => (
+                                    <Select.Option 
+                                        key={cell.id} 
+                                        value={cell.id}
+                                        disabled={cell.isOccupied}
+                                    >
+                                        <Tooltip title={cell.isOccupied ? 'Bu hücre dolu' : `Konum: ${cell.code}`}>
+                                            {cell.code}
+                                            {cell.isOccupied ? ' (Dolu)' : ' (Boş)'}
+                                        </Tooltip>
+                                    </Select.Option>
+                                ))}
+                            </Select>
                         </Form.Item>
                     </Col>
                 </Row>
@@ -401,32 +477,34 @@ const ProductModal = ({ visible, onCancel, onSubmit, initialData, mode }) => {
                 <Row gutter={16}>
                     <Col span={8}>
                         <Form.Item 
-                            name="categoryId" 
-                            label="Kategori" 
-                            rules={[{ required: true, message: 'Lütfen kategori seçin' }]}
+                            name="dailyStorageRate" 
+                            label="Günlük Depolama Ücreti (TL)"
+                            tooltip="Kategori seçimine göre otomatik belirlenir"
                         >
-                            <Select placeholder="Kategori seçin" onChange={handleCategoryChange}>
-                                {categories.map(cat => (
-                                    <Select.Option key={cat.id} value={cat.id}>
-                                        {cat.name}
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                            <InputNumber 
+                                style={{ width: '100%' }} 
+                                min={0} 
+                                precision={2}
+                                disabled
+                                formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value.replace(/₺\s?|(,*)/g, '')}
+                            />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
                         <Form.Item 
-                            name="locationId" 
-                            label="Lokasyon" 
-                            rules={[{ required: true, message: 'Lütfen lokasyon seçin' }]}
+                            name="price" 
+                            label="Toplam Depolama Ücreti (TL)" 
+                            tooltip="Bu ücret otomatik olarak hesaplanır"
                         >
-                            <Select placeholder="Lokasyon seçin">
-                                {locations.map(loc => (
-                                    <Select.Option key={loc.id} value={loc.id}>
-                                        {`${loc.code} - Raf ${loc.rackNumber}, Seviye ${loc.level}`}
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                            <InputNumber 
+                                style={{ width: '100%' }} 
+                                min={0} 
+                                precision={2}
+                                disabled
+                                formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={value => value.replace(/₺\s?|(,*)/g, '')}
+                            />
                         </Form.Item>
                     </Col>
                 </Row>

@@ -5,6 +5,7 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: 'class', // Dark mode sınıf tabanında çalışacak
   theme: {
     extend: {
       colors: {

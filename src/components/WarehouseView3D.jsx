@@ -3,11 +3,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import axios from 'axios';
 import WarehouseProductModal from './WarehouseProductModal';
-import { Button, Select } from 'antd';
+import { Button, Select, ConfigProvider, theme as antTheme } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { toast } from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext';
+
+const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
 const WarehouseView3D = () => {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
+    
     const mountRef = useRef(null);
     const [locations, setLocations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,19 +40,19 @@ const WarehouseView3D = () => {
     // Materyal önbelleği
     const MATERIALS = {
         metal: new THREE.MeshPhongMaterial({
-            color: 0xb0b0b0,
+            color: isDark ? 0x666666 : 0xb0b0b0,
             shininess: 60,
             specular: 0x444444
         }),
         emptyCell: new THREE.LineBasicMaterial({
-            color: 0x90caf9,
+            color: isDark ? 0x4a5568 : 0x90caf9,
             transparent: true,
-            opacity: 0.5
+            opacity: isDark ? 0.7 : 0.5
         }),
         occupiedCell: new THREE.LineBasicMaterial({
-            color: 0x2196f3,
+            color: isDark ? 0x3182ce : 0x2196f3,
             transparent: true,
-            opacity: 0.8
+            opacity: isDark ? 0.9 : 0.8
         })
     };
 
@@ -277,7 +283,7 @@ const WarehouseView3D = () => {
 
         // Scene
         sceneRef.current = new THREE.Scene();
-        sceneRef.current.background = new THREE.Color(0xf0f0f0);
+        sceneRef.current.background = new THREE.Color(isDark ? 0x1a202c : 0xf0f0f0);
 
         // Camera
         cameraRef.current = new THREE.PerspectiveCamera(
@@ -379,66 +385,88 @@ const WarehouseView3D = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Ant Design tema konfigürasyonu
+    const themeConfig = {
+        algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
+        token: {
+            colorPrimary: '#1890ff',
+            borderRadius: 8,
+        },
+        components: {
+            Select: {
+                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+            },
+            Button: {
+                colorBgContainer: isDark ? 'rgba(30, 32, 37, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
+            }
+        }
+    };
+
     return (
-        <div style={{ position: 'relative' }}>
-            <div style={{ 
-                position: 'absolute', 
-                top: '20px', 
-                left: '20px',
-                background: 'white',
-                padding: '10px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                zIndex: 1000
-            }}>
-                <Select
-                    style={{ width: 120 }}
-                    placeholder="Raf Seç"
-                    onChange={handleRackSelect}
-                    value={selectedRack}
-                >
-                    {[...Array(10)].map((_, i) => (
-                        <Select.Option key={i + 1} value={i + 1}>
-                            Raf {i + 1}
-                        </Select.Option>
-                    ))}
-                </Select>
+        <ConfigProvider theme={themeConfig}>
+            <div style={{ position: 'relative' }}>
+                <div style={{ 
+                    position: 'absolute', 
+                    top: '20px', 
+                    left: '20px',
+                    background: isDark ? '#2d3748' : 'white',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+                    zIndex: 1000
+                }}>
+                    <Select
+                        style={{ width: 120 }}
+                        placeholder="Raf Seç"
+                        onChange={handleRackSelect}
+                        value={selectedRack}
+                        className={isDark ? 'dark-select' : ''}
+                    >
+                        {[...Array(10)].map((_, i) => (
+                            <Select.Option key={i + 1} value={i + 1}>
+                                Raf {i + 1}
+                            </Select.Option>
+                        ))}
+                    </Select>
+                </div>
+                <div 
+                    ref={mountRef} 
+                    style={{ 
+                        width: '100%', 
+                        height: '700px',
+                        backgroundColor: isDark ? '#1a202c' : '#f0f0f0'
+                    }}
+                />
+                <div style={{ 
+                    position: 'absolute', 
+                    top: '20px', 
+                    right: '20px',
+                    background: isDark ? '#2d3748' : 'white',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                    <Button 
+                        type="primary"
+                        onClick={() => setIsModalOpen(true)}
+                        size="large"
+                        icon={<PlusOutlined />}
+                    >
+                        Ürün İşlemleri
+                    </Button>
+                </div>
+                <WarehouseProductModal
+                    visible={isModalOpen}
+                    onCancel={() => {
+                        setIsModalOpen(false);
+                        setSelectedCell(null);
+                    }}
+                    cellData={selectedCell}
+                />
             </div>
-            <div 
-                ref={mountRef} 
-                style={{ 
-                    width: '100%', 
-                    height: '700px',
-                    backgroundColor: '#f0f0f0'
-                }}
-            />
-            <div style={{ 
-                position: 'absolute', 
-                top: '20px', 
-                right: '20px',
-                background: 'white',
-                padding: '10px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-            }}>
-                <Button 
-                    type="primary"
-                    onClick={() => setIsModalOpen(true)}
-                    size="large"
-                    icon={<PlusOutlined />}
-                >
-                    Ürün İşlemleri
-                </Button>
-            </div>
-            <WarehouseProductModal
-                visible={isModalOpen}
-                onCancel={() => {
-                    setIsModalOpen(false);
-                    setSelectedCell(null);
-                }}
-                cellData={selectedCell}
-            />
-        </div>
+        </ConfigProvider>
     );
 };
 

@@ -4,9 +4,11 @@ import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import { DashboardOutlined, UserOutlined, ShopOutlined, InboxOutlined, EnvironmentOutlined, BoxPlotOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Layout = () => {
   const { user } = useAuth();
+  const { theme } = useTheme();
 
   const menuItems = [
     {
@@ -55,7 +57,7 @@ const Layout = () => {
   });
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-100/50 to-indigo-100/50">
+    <div className={`flex h-screen ${theme === 'dark' ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-blue-100/50 to-indigo-100/50'}`}>
       {/* Sidebar - Mobilde gizli */}
       <div className="hidden md:block md:w-64 lg:w-72 flex-shrink-0">
         <Sidebar />
@@ -65,7 +67,7 @@ const Layout = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
-          <div className="bg-white/80 backdrop-blur-sm shadow-xl rounded-xl p-4 md:p-6 min-h-[calc(100vh-8rem)]">
+          <div className={`${theme === 'dark' ? 'bg-gray-800/80 backdrop-blur-sm shadow-xl' : 'bg-white/80 backdrop-blur-sm shadow-xl'} rounded-xl p-4 md:p-6 min-h-[calc(100vh-8rem)]`}>
             <Outlet />
           </div>
         </main>
