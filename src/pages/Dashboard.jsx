@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select, Popover, List, Typography, Empty, ConfigProvider, theme as antTheme } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select, Popover, List, Typography, Empty } from 'antd';
 import { 
     BarChart, Bar, LineChart, Line, PieChart, Pie, ResponsiveContainer, 
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell 
@@ -8,48 +8,23 @@ import { ShopOutlined, DollarOutlined, WarningOutlined,
          SwapOutlined, DatabaseOutlined, UserOutlined, ShoppingOutlined, AreaChartOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
 
 const { Option } = Select;
 const { Text } = Typography;
-const { defaultAlgorithm, darkAlgorithm } = antTheme;
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-// Dark/Light mode için renk ayarları
-const getColors = (isDark) => ({
-    primary: isDark ? ['#1890ff', '#096dd9'] : ['#1890ff', '#096dd9'],
-    success: isDark ? ['#52c41a', '#389e0d'] : ['#52c41a', '#389e0d'],
-    warning: isDark ? ['#faad14', '#d48806'] : ['#faad14', '#d48806'],
-    error: isDark ? ['#ff4d4f', '#cf1322'] : ['#ff4d4f', '#cf1322'],
-    
-    // Grafikler için
-    chartColors: {
-        bar: {
-            'Elektronik': isDark ? '#4096ff' : '#1890ff',
-            'Giyim': isDark ? '#49aa19' : '#00C49F',
-            'Kozmetik': isDark ? '#d8bd14' : '#FFBB28',
-            'Kitap': isDark ? '#d87a16' : '#FF8042',
-            'Ev Eşyası': isDark ? '#642ab5' : '#8884d8'
-        },
-        pieColors: isDark ? 
-            ['#4096ff', '#95de64', '#ffd666', '#ff7a45', '#b37feb'] : 
-            ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1'],
-        line: isDark ? '#4096ff' : '#00C49F'
+const CHART_COLORS = {
+    bar: {
+        'Elektronik': '#1890ff',
+        'Giyim': '#00C49F',
+        'Kozmetik': '#FFBB28',
+        'Kitap': '#FF8042',
+        'Ev Eşyası': '#8884d8'
     },
-    
-    // Kartlar için
-    cardBg: isDark ? 'rgba(30, 32, 37, 0.8)' : 'white',
-    cardShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
-    cardText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
-    cardBorder: isDark ? '1px solid #303030' : '1px solid #f0f0f0',
-});
+    line: '#00C49F'
+};
 
 const Dashboard = () => {
-    const { theme } = useTheme();
-    const { t, language } = useLanguage();
-    const isDark = theme === 'dark';
-    const colors = getColors(isDark);
-    
     const [summaryData, setSummaryData] = useState(null);
     const [trendsData, setTrendsData] = useState(null);
     const [productStats, setProductStats] = useState(null);
@@ -63,6 +38,20 @@ const Dashboard = () => {
     const [recentMovements, setRecentMovements] = useState([]);
     const [topValuedProducts, setTopValuedProducts] = useState([]);
     const [overallCategoryDistribution, setOverallCategoryDistribution] = useState([]);
+    const [expenses, setExpenses] = useState([]);
+    const [expenseCategoryDistribution, setExpenseCategoryDistribution] = useState([]);
+    const [expenseTimeDistribution, setExpenseTimeDistribution] = useState([]);
+    const [totalExpense, setTotalExpense] = useState(0);
+    const [yearlyExpense, setYearlyExpense] = useState(0);
+    const [monthlyExpense, setMonthlyExpense] = useState(0);
+    const [weeklyExpense, setWeeklyExpense] = useState(0);
+    const [allTimeExpense, setAllTimeExpense] = useState(0);
+    const [productPriceData, setProductPriceData] = useState([]);
+    const [categoryPriceAnalysis, setCategoryPriceAnalysis] = useState([]);
+    const [priceDistribution, setPriceDistribution] = useState([]);
+    const [productRevenue, setProductRevenue] = useState(0);
+    const [revenueByCategory, setRevenueByCategory] = useState([]);
+    const [revenueTimeDistribution, setRevenueTimeDistribution] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -90,7 +79,7 @@ const Dashboard = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [summaryRes, trendsRes, statsRes, distributionRes, monthlyMovementsRes, totalStockStatusRes, warehouseOccupancyRes, recentMovementsRes, topValuedProductsRes] = await Promise.all([
+            const [summaryRes, trendsRes, statsRes, distributionRes, monthlyMovementsRes, totalStockStatusRes, warehouseOccupancyRes, recentMovementsRes, topValuedProductsRes, expenseSummaryRes, productPriceAnalysisRes] = await Promise.all([
                 axios.get(`http://localhost:3000/api/dashboard/summary?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
@@ -118,6 +107,12 @@ const Dashboard = () => {
                 axios.get(`http://localhost:3000/api/dashboard/top-valued-products?timeRange=${timeRange}`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 }),
+                axios.get(`http://localhost:3000/api/dashboard/expense-summary?timeRange=${timeRange}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
+                axios.get(`http://localhost:3000/api/dashboard/product-price-analysis`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }),
                 fetchLowStockProducts()
             ]).catch(error => {
                 console.error('API request error:', error);
@@ -128,7 +123,7 @@ const Dashboard = () => {
                 } else {
                     toast.error('Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
                 }
-                return [null, null, null, null, null, null, null, null, null];
+                return [null, null, null, null, null, null, null, null, null, null, null];
             });
 
             if (summaryRes?.data?.success) {
@@ -157,6 +152,54 @@ const Dashboard = () => {
             }
             if (topValuedProductsRes?.data?.success) {
                 setTopValuedProducts(topValuedProductsRes.data.data);
+            }
+            if (expenseSummaryRes?.data?.success) {
+                const expenseData = expenseSummaryRes.data.data;
+                setExpenses(expenseData.expenses || []);
+                setExpenseCategoryDistribution(expenseData.categoryDistribution || []);
+                setExpenseTimeDistribution(expenseData.timeDistribution || []);
+                setTotalExpense(expenseData.totalExpense || 0);
+                setYearlyExpense(expenseData.yearlyExpense || 0);
+                setMonthlyExpense(expenseData.monthlyExpense || 0);
+                setWeeklyExpense(expenseData.weeklyExpense || 0);
+                setAllTimeExpense(expenseData.allTimeExpense || 0);
+            }
+            if (productPriceAnalysisRes?.data?.success) {
+                const data = productPriceAnalysisRes.data.data;
+                setProductPriceData(data.products || []);
+                setCategoryPriceAnalysis(data.categoryAnalysis || []);
+                setPriceDistribution(data.priceDistribution || []);
+                
+                // Ürün gelirlerini hesapla (price * quantity)
+                let totalProductRevenue = 0;
+                const productList = data.products || [];
+                productList.forEach(product => {
+                    totalProductRevenue += (product.price || 0) * (product.quantity || 1);
+                });
+                setProductRevenue(totalProductRevenue);
+                
+                // Kategori bazında gelir dağılımı
+                const categoryRevenueMap = {};
+                const categoryAnalysis = data.categoryAnalysis || [];
+                categoryAnalysis.forEach(category => {
+                    categoryRevenueMap[category.category] = category.totalValue || 0;
+                });
+                
+                const formattedCategoryRevenue = Object.entries(categoryRevenueMap).map(([name, value]) => ({
+                    name,
+                    value: parseFloat(value.toFixed(2))
+                }));
+                setRevenueByCategory(formattedCategoryRevenue);
+                
+                // Zaman bazlı gelir dağılımı - monthly movements kullanarak
+                if (monthlyMovementsRes?.data?.success) {
+                    const movementData = monthlyMovementsRes.data.data;
+                    const timeRevenue = movementData.map(item => ({
+                        date: item.date,
+                        amount: item.incoming * 100 // Örnek hesaplama: her giriş için 100 TL varsayalım
+                    }));
+                    setRevenueTimeDistribution(timeRevenue);
+                }
             }
         } catch (error) {
             console.error('Dashboard veri hatası:', error);
@@ -290,520 +333,808 @@ const Dashboard = () => {
         />
     );
 
-    // Ant Design tema konfigürasyonu
-    const themeConfig = {
-        algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
-        token: {
-            colorPrimary: '#1890ff',
-            borderRadius: 8,
-        },
-        components: {
-            Card: {
-                colorBgContainer: isDark ? 'rgba(30, 32, 37, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-                colorBorderSecondary: isDark ? '#303030' : '#f0f0f0',
-                boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.05)',
-            },
-            Table: {
-                colorBgContainer: isDark ? 'rgba(24, 26, 31, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
-            },
-            Typography: {
-                colorText: isDark ? '#e6e6e6' : 'rgba(0, 0, 0, 0.85)',
-                colorTextSecondary: isDark ? '#a6a6a6' : 'rgba(0, 0, 0, 0.45)',
-            }
-        }
-    };
-
     return (
-        <ConfigProvider theme={themeConfig}>
-            <div className={`p-4 ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
-                {/* Başlık ve Filtre Alanı */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                    <h1 className={`text-2xl font-bold mb-4 sm:mb-0 ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                        Depo Yönetim Paneli
-                    </h1>
-                    <div className="flex items-center">
-                        <span className={`mr-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Zaman Aralığı:</span>
-                        <Select 
-                            value={timeRange} 
-                            onChange={value => setTimeRange(value)}
-                            style={{ width: 140 }}
-                            className="dark:bg-gray-800"
-                        >
-                            <Option value="daily">Günlük</Option>
-                            <Option value="weekly">Haftalık</Option>
-                            <Option value="monthly">Aylık</Option>
-                            <Option value="yearly">Yıllık</Option>
-                            <Option value="all">Tümü</Option>
-                        </Select>
-                    </div>
-                </div>
+        <div className="p-6 bg-gray-50">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">Depo Yönetim Paneli</h1>
+                <Select 
+                    defaultValue="weekly" 
+                    style={{ width: 120 }} 
+                    onChange={value => setTimeRange(value)}
+                >
+                    <Option value="daily">Bu Hafta</Option>
+                    <Option value="weekly">Bu Ay</Option>
+                    <Option value="monthly">Bu Yıl</Option>
+                </Select>
+            </div>
 
-                {/* İçerik */}
-                <div>
-                    {/* İstatistik Kartları */}
-                    <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={12} lg={8}>
-                            <Card loading={loading}>
+            {/* İstatistik Kartları */}
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title="Toplam Palet Sayısı"
+                            value={warehouseOccupancy?.totalProducts || 0}
+                            prefix={<ShopOutlined />}
+                            suffix="Palet"
+                        />
+                    </Card>
+                </Col>
+
+                <Col xs={24} sm={12} lg={8}>
+                    <Card loading={loading}>
+                        <Statistic
+                            title="Toplam Stok Değeri"
+                            value={summaryData?.stockValue}
+                            prefix={<DollarOutlined />}
+                            suffix="TL"
+                            formatter={value => {
+                                if (value) {
+                                    return new Intl.NumberFormat('tr-TR').format(Number(value).toFixed(2));
+                                }
+                                return '0';
+                            }}
+                        />
+                        <div className="mt-2 text-sm text-gray-500">
+                            Palet Başına: {summaryData?.stockValue && warehouseOccupancy?.totalProducts ? 
+                                new Intl.NumberFormat('tr-TR').format(
+                                    (summaryData.stockValue / warehouseOccupancy.totalProducts).toFixed(2)
+                                ) : '0'} TL
+                        </div>
+                    </Card>
+                </Col>
+
+                <Col xs={24} sm={12} lg={8}>
+                    <Card loading={loading}>
+                        <Popover 
+                            content={lowStockContent}
+                            title="Düşük Stoklu Paletler Detayı"
+                            trigger="hover"
+                            placement="bottom"
+                        >
+                            <div style={{ cursor: 'pointer' }}>
                                 <Statistic
-                                    title="Toplam Palet Sayısı"
-                                    value={warehouseOccupancy?.totalProducts || 0}
-                                    prefix={<ShopOutlined />}
+                                    title="Düşük Stoklu Paletler"
+                                    value={summaryData?.lowStockProducts}
+                                    prefix={<WarningOutlined />}
+                                    valueStyle={{ color: '#cf1322' }}
                                     suffix="Palet"
                                 />
-                            </Card>
-                        </Col>
+                            </div>
+                        </Popover>
+                    </Card>
+                </Col>
+            </Row>
 
-                        <Col xs={24} sm={12} lg={8}>
-                            <Card loading={loading}>
-                                <Statistic
-                                    title="Toplam Stok Değeri"
-                                    value={summaryData?.stockValue}
-                                    prefix={<DollarOutlined />}
-                                    suffix="TL"
-                                    formatter={value => {
-                                        if (value) {
-                                            return new Intl.NumberFormat('tr-TR').format(Number(value).toFixed(2));
-                                        }
-                                        return '0';
-                                    }}
-                                />
-                                <div className="mt-2 text-sm text-gray-500">
-                                    Palet Başına: {summaryData?.stockValue && warehouseOccupancy?.totalProducts ? 
-                                        new Intl.NumberFormat('tr-TR').format(
-                                            (summaryData.stockValue / warehouseOccupancy.totalProducts).toFixed(2)
-                                        ) : '0'} TL
+            {/* Depo Doluluk Oranı */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card title="Depo Doluluk Durumu" loading={loading}>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} md={12}>
+                                <div className="text-center mb-4">
+                                    <Progress
+                                        type="circle"
+                                        percent={warehouseOccupancy?.occupancyRate || 0}
+                                        format={percent => `${percent}%`}
+                                        strokeColor={{
+                                            '0%': '#87d068',
+                                            '50%': '#faad14',
+                                            '75%': '#ff7a45',
+                                            '90%': '#f5222d'
+                                        }}
+                                        size={200}
+                                    />
                                 </div>
-                            </Card>
-                        </Col>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                    <Card type="inner" title="Alan Kullanımı">
+                                        <Row gutter={[16, 16]}>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Toplam Alan"
+                                                    value={warehouseOccupancy?.totalArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Kullanılan Alan"
+                                                    value={warehouseOccupancy?.occupiedArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Boş Alan"
+                                                    value={warehouseOccupancy?.availableArea || 0}
+                                                    suffix="m²"
+                                                    precision={1}
+                                                    valueStyle={{ color: '#3f8600' }}
+                                                />
+                                            </Col>
+                                            <Col span={12}>
+                                                <Statistic
+                                                    title="Ürün Sayısı"
+                                                    value={warehouseOccupancy?.totalQuantity || 0}
+                                                    prefix={<ShopOutlined />}
+                                                />
+                                            </Col>
+                                        </Row>
+                                    </Card>
+                                </Space>
+                            </Col>
+                        </Row>
+                    </Card>
+                </Col>
+            </Row>
 
-                        <Col xs={24} sm={12} lg={8}>
-                            <Card loading={loading}>
-                                <Popover 
-                                    content={lowStockContent}
-                                    title="Düşük Stoklu Paletler Detayı"
-                                    trigger="hover"
-                                    placement="bottom"
-                                >
-                                    <div style={{ cursor: 'pointer' }}>
-                                        <Statistic
-                                            title="Düşük Stoklu Paletler"
-                                            value={summaryData?.lowStockProducts}
-                                            prefix={<WarningOutlined />}
-                                            valueStyle={{ color: '#cf1322' }}
-                                            suffix="Palet"
-                                        />
-                                    </div>
-                                </Popover>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    {/* Depo Doluluk Oranı */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card title="Depo Doluluk Durumu" loading={loading}>
-                                <Row gutter={[16, 16]}>
-                                    <Col xs={24} md={12}>
-                                        <div className="text-center mb-4">
-                                            <Progress
-                                                type="circle"
-                                                percent={warehouseOccupancy?.occupancyRate || 0}
-                                                format={percent => `${percent}%`}
-                                                strokeColor={{
-                                                    '0%': '#87d068',
-                                                    '50%': '#faad14',
-                                                    '75%': '#ff7a45',
-                                                    '90%': '#f5222d'
-                                                }}
-                                                size={200}
+            {/* Kategori Dağılımı */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24} md={12}>
+                    <Card 
+                        title="Zaman Aralığına Göre Kategori Dağılımı" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={categoryDistribution}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={150}
+                                        label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                    >
+                                        {categoryDistribution.map((entry, index) => (
+                                            <Cell 
+                                                key={`cell-${index}`} 
+                                                fill={COLORS[index % COLORS.length]} 
                                             />
-                                        </div>
-                                    </Col>
-                                    <Col xs={24} md={12}>
-                                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                                            <Card type="inner" title="Alan Kullanımı">
-                                                <Row gutter={[16, 16]}>
-                                                    <Col span={12}>
-                                                        <Statistic
-                                                            title="Toplam Alan"
-                                                            value={warehouseOccupancy?.totalArea || 0}
-                                                            suffix="m²"
-                                                            precision={1}
-                                                        />
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Statistic
-                                                            title="Kullanılan Alan"
-                                                            value={warehouseOccupancy?.occupiedArea || 0}
-                                                            suffix="m²"
-                                                            precision={1}
-                                                        />
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Statistic
-                                                            title="Boş Alan"
-                                                            value={warehouseOccupancy?.availableArea || 0}
-                                                            suffix="m²"
-                                                            precision={1}
-                                                            valueStyle={{ color: '#3f8600' }}
-                                                        />
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Statistic
-                                                            title="Ürün Sayısı"
-                                                            value={warehouseOccupancy?.totalQuantity || 0}
-                                                            prefix={<ShopOutlined />}
-                                                        />
-                                                    </Col>
-                                                </Row>
-                                            </Card>
-                                        </Space>
-                                    </Col>
-                                </Row>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    {/* Ürün İstatistikleri */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card title="Ürün İstatistikleri" loading={loading}>
-                                <Row gutter={[16, 16]}>
-                                    <Col xs={24} md={12}>
-                                        <Card type="inner" title="Fiyat İstatistikleri">
-                                            <Space direction="vertical" style={{ width: '100%' }} size="large">
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Minimum Fiyat</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.price?.min || 0} TL
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Maksimum Fiyat</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.price?.max || 0} TL
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Medyan Fiyat</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.price?.median || 0} TL
-                                                    </div>
-                                                </div>
-                                            </Space>
-                                        </Card>
-                                    </Col>
-                                    <Col xs={24} md={12}>
-                                        <Card type="inner" title="Stok İstatistikleri">
-                                            <Space direction="vertical" style={{ width: '100%' }} size="large">
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Minimum Stok</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.quantity?.min || 0} adet
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Maksimum Stok</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.quantity?.max || 0} adet
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-gray-600 mb-1">Medyan Stok</div>
-                                                    <div className="text-xl font-semibold">
-                                                        {productStats?.quantity?.median || 0} adet
-                                                    </div>
-                                                </div>
-                                            </Space>
-                                        </Card>
-                                    </Col>
-                                </Row>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    {/* Kategori Dağılımı */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24} md={12}>
-                            <Card 
-                                title="Zaman Aralığına Göre Kategori Dağılımı" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <div style={{ height: 400 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={categoryDistribution}
-                                                dataKey="value"
-                                                nameKey="name"
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={150}
-                                                label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                                            >
-                                                {categoryDistribution.map((entry, index) => (
-                                                    <Cell 
-                                                        key={`cell-${index}`} 
-                                                        fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                formatter={(value, name, props) => [
-                                                    <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
-                                                    name
-                                                ]}
-                                                separator=""
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        formatter={(value, name, props) => [
+                                            <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
+                                            name
+                                        ]}
+                                        separator=""
+                                    />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12}>
+                    <Card 
+                        title="Genel Kategori Dağılımı" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart margin={{ top: 0, right: 30, bottom: 0, left: 30 }}>
+                                    <Pie
+                                        data={overallCategoryDistribution}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={120}
+                                        label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        labelLine={{ strokeWidth: 1 }}
+                                    >
+                                        {overallCategoryDistribution.map((entry, index) => (
+                                            <Cell 
+                                                key={`cell-${index}`} 
+                                                fill={COLORS[index % COLORS.length]} 
                                             />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </Card>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Card 
-                                title="Genel Kategori Dağılımı" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <div style={{ height: 400 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart margin={{ top: 0, right: 30, bottom: 0, left: 30 }}>
-                                            <Pie
-                                                data={overallCategoryDistribution}
-                                                dataKey="value"
-                                                nameKey="name"
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={120}
-                                                label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                                                labelLine={{ strokeWidth: 1 }}
-                                            >
-                                                {overallCategoryDistribution.map((entry, index) => (
-                                                    <Cell 
-                                                        key={`cell-${index}`} 
-                                                        fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                formatter={(value, name, props) => [
-                                                    <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
-                                                    name
-                                                ]}
-                                                separator=""
-                                            />
-                                            <Legend layout="horizontal" verticalAlign="bottom" align="center" />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </Card>
-                        </Col>
-                    </Row>
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        formatter={(value, name, props) => [
+                                            <> Ürün Sayısı: {value}<br/>Toplam Ürün Geliri: {props.payload.totalValue.toLocaleString('tr-TR')} TL</>,
+                                            name
+                                        ]}
+                                        separator=""
+                                    />
+                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
 
-                    {/* Net Stok Değişimi */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card 
-                                title="Net Stok Değişimi" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <div style={{ height: 400 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={monthlyMovements}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="total" 
-                                                name="Net Değişim"
-                                                stroke={colors.chartColors.line} 
-                                                strokeWidth={2}
-                                                dot={{ r: 4 }}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </Card>
-                        </Col>
-                    </Row>
+            {/* Net Stok Değişimi */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Net Stok Değişimi" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={monthlyMovements}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="total" 
+                                        name="Net Değişim"
+                                        stroke="#2196F3" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
 
-                    {/* Son Stok Hareketleri */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card 
-                                title="Son Stok Hareketleri" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <Table
-                                    dataSource={recentMovements}
-                                    columns={[
-                                        {
-                                            title: 'Hareket',
-                                            dataIndex: 'type',
-                                            key: 'type',
-                                            render: (type) => (
-                                                <Tag color={type === 'IN' ? 'green' : 'red'}>
-                                                    {type === 'IN' ? 'Giriş' : 'Çıkış'}
-                                                </Tag>
-                                            ),
-                                        },
-                                        {
-                                            title: 'Ürün',
-                                            dataIndex: ['product', 'name'],
-                                            key: 'product',
-                                        },
-                                        {
-                                            title: 'SKU',
-                                            dataIndex: ['product', 'sku'],
-                                            key: 'sku',
-                                        },
-                                        {
-                                            title: 'Kategori',
-                                            dataIndex: ['product', 'category'],
-                                            key: 'category',
-                                        },
-                                        {
-                                            title: 'Miktar',
-                                            dataIndex: 'quantity',
-                                            key: 'quantity',
-                                        },
-                                        {
-                                            title: 'Lokasyon',
-                                            dataIndex: 'location',
-                                            key: 'location',
-                                        },
-                                        {
-                                            title: 'İşlemi Yapan',
-                                            dataIndex: 'creator',
-                                            key: 'creator',
-                                        },
-                                        {
-                                            title: 'Tarih',
-                                            dataIndex: 'createdAt',
-                                            key: 'createdAt',
-                                            render: (date) => new Date(date).toLocaleDateString('tr-TR', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })
-                                        }
-                                    ]}
-                                    pagination={false}
-                                    scroll={{ x: true }}
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
+            {/* Son Stok Hareketleri */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Son Stok Hareketleri" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Table
+                            dataSource={recentMovements}
+                            columns={[
+                                {
+                                    title: 'Hareket',
+                                    dataIndex: 'type',
+                                    key: 'type',
+                                    render: (type) => (
+                                        <Tag color={type === 'IN' ? 'green' : 'red'}>
+                                            {type === 'IN' ? 'Giriş' : 'Çıkış'}
+                                        </Tag>
+                                    ),
+                                },
+                                {
+                                    title: 'Ürün',
+                                    dataIndex: ['product', 'name'],
+                                    key: 'product',
+                                },
+                                {
+                                    title: 'SKU',
+                                    dataIndex: ['product', 'sku'],
+                                    key: 'sku',
+                                },
+                                {
+                                    title: 'Kategori',
+                                    dataIndex: ['product', 'category'],
+                                    key: 'category',
+                                },
+                                {
+                                    title: 'Miktar',
+                                    dataIndex: 'quantity',
+                                    key: 'quantity',
+                                },
+                                {
+                                    title: 'Lokasyon',
+                                    dataIndex: 'location',
+                                    key: 'location',
+                                },
+                                {
+                                    title: 'İşlemi Yapan',
+                                    dataIndex: 'creator',
+                                    key: 'creator',
+                                },
+                                {
+                                    title: 'Tarih',
+                                    dataIndex: 'createdAt',
+                                    key: 'createdAt',
+                                    render: (date) => new Date(date).toLocaleDateString('tr-TR', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })
+                                }
+                            ]}
+                            pagination={false}
+                            scroll={{ x: true }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
-                    {/* En Değerli 5 Ürün */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card 
-                                title="En Değerli 5 Ürün" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <Table
-                                    dataSource={topValuedProducts}
-                                    columns={[
-                                        {
-                                            title: 'Ürün Adı',
-                                            dataIndex: 'name',
-                                            key: 'name',
-                                        },
-                                        {
-                                            title: 'SKU',
-                                            dataIndex: 'sku',
-                                            key: 'sku',
-                                        },
-                                        {
-                                            title: 'Kategori',
-                                            dataIndex: 'categoryName',
-                                            key: 'category',
-                                        },
-                                        {
-                                            title: 'Lokasyon',
-                                            dataIndex: 'locationCode',
-                                            key: 'location',
-                                        },
-                                        {
-                                            title: 'Miktar',
-                                            dataIndex: 'quantity',
-                                            key: 'quantity',
-                                        },
-                                        {
-                                            title: 'Ürün Geliri',
-                                            dataIndex: 'totalValue',
-                                            key: 'totalValue',
-                                            render: (value, record) => {
-                                                return `${parseFloat(value).toLocaleString('tr-TR')} TL`;
+            {/* En Değerli 5 Ürün */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="En Değerli 5 Ürün" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Table
+                            dataSource={topValuedProducts}
+                            columns={[
+                                {
+                                    title: 'Ürün Adı',
+                                    dataIndex: 'name',
+                                    key: 'name',
+                                },
+                                {
+                                    title: 'SKU',
+                                    dataIndex: 'sku',
+                                    key: 'sku',
+                                },
+                                {
+                                    title: 'Kategori',
+                                    dataIndex: 'categoryName',
+                                    key: 'category',
+                                },
+                                {
+                                    title: 'Lokasyon',
+                                    dataIndex: 'locationCode',
+                                    key: 'location',
+                                },
+                                {
+                                    title: 'Miktar',
+                                    dataIndex: 'quantity',
+                                    key: 'quantity',
+                                },
+                                {
+                                    title: 'Ürün Geliri',
+                                    dataIndex: 'totalValue',
+                                    key: 'totalValue',
+                                    render: (value, record) => {
+                                        return `${parseFloat(value).toLocaleString('tr-TR')} TL`;
+                                    },
+                                    defaultSortOrder: 'descend',
+                                    sorter: (a, b) => a.totalValue - b.totalValue,
+                                }
+                            ]}
+                            pagination={false}
+                            scroll={{ x: true }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Toplam Stok Durumu */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Toplam Stok Durumu" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <div style={{ height: 400 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={totalStockStatus}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis yAxisId="left" />
+                                    <YAxis yAxisId="right" orientation="right" />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line 
+                                        yAxisId="left"
+                                        type="monotone" 
+                                        dataKey="totalStock" 
+                                        name="Toplam Ürün Sayısı"
+                                        stroke="#4CAF50" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                    <Line 
+                                        yAxisId="right"
+                                        type="monotone" 
+                                        dataKey="palletCount" 
+                                        name="Palet Sayısı"
+                                        stroke="#FF9800" 
+                                        strokeWidth={2}
+                                        dot={{ r: 4 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Gider Tablosu ve Analizi */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Gider Analizi" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Row gutter={[16, 16]} className="mb-4">
+                            <Col xs={24} md={8}>
+                                <Card type="inner" title="Toplam Yıllık Masraf">
+                                    <p className="text-2xl font-bold text-center">
+                                        {yearlyExpense?.toLocaleString('tr-TR')} TL
+                                    </p>
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={8}>
+                                <Card type="inner" title="Aylık Masraf (1/12)">
+                                    <p className="text-2xl font-bold text-center">
+                                        {monthlyExpense?.toLocaleString('tr-TR')} TL
+                                    </p>
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={8}>
+                                <Card type="inner" title="Haftalık Masraf (1/4 ay)">
+                                    <p className="text-2xl font-bold text-center">
+                                        {weeklyExpense?.toLocaleString('tr-TR')} TL
+                                    </p>
+                                </Card>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Gider Listesi">
+                                    <Table
+                                        dataSource={expenses}
+                                        columns={[
+                                            {
+                                                title: 'Başlangıç Tarihi',
+                                                dataIndex: 'startDate',
+                                                key: 'startDate',
+                                                render: (date) => new Date(date).toLocaleDateString('tr-TR'),
                                             },
-                                            defaultSortOrder: 'descend',
-                                            sorter: (a, b) => a.totalValue - b.totalValue,
-                                        }
-                                    ]}
-                                    pagination={false}
-                                    scroll={{ x: true }}
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
+                                            {
+                                                title: 'Bitiş Tarihi',
+                                                dataIndex: 'endDate',
+                                                key: 'endDate',
+                                                render: (date) => new Date(date).toLocaleDateString('tr-TR'),
+                                            },
+                                            {
+                                                title: 'Kategori',
+                                                dataIndex: 'type',
+                                                key: 'type',
+                                                render: (type) => (
+                                                    <Tag color={
+                                                        type === 'office' ? 'blue' : 
+                                                        type === 'utility' ? 'orange' : 
+                                                        type === 'salary' ? 'green' : 
+                                                        'default'
+                                                    }>
+                                                        {type === 'office' ? 'Ofis Giderleri' : 
+                                                         type === 'utility' ? 'Faturalar' : 
+                                                         type === 'salary' ? 'Maaşlar' : type}
+                                                    </Tag>
+                                                ),
+                                            },
+                                            {
+                                                title: 'Tutar',
+                                                dataIndex: 'amount',
+                                                key: 'amount',
+                                                render: (amount) => `${amount.toLocaleString('tr-TR')} TL`,
+                                                defaultSortOrder: 'descend',
+                                                sorter: (a, b) => a.amount - b.amount,
+                                            },
+                                            {
+                                                title: 'Açıklama',
+                                                dataIndex: 'description',
+                                                key: 'description',
+                                                ellipsis: true
+                                            }
+                                        ]}
+                                        pagination={{ pageSize: 5 }}
+                                        scroll={{ x: 'max-content' }}
+                                    />
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Kategori Bazında Giderler">
+                                    <div style={{ height: 300 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={expenseCategoryDistribution}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    fill="#8884d8"
+                                                    label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                                >
+                                                    {expenseCategoryDistribution.map((entry, index) => (
+                                                        <Cell 
+                                                            key={`cell-${index}`} 
+                                                            fill={COLORS[index % COLORS.length]} 
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]} className="mt-4">
+                            <Col xs={24}>
+                                <Card type="inner" title="Zaman Bazlı Gider Dağılımı">
+                                    <div style={{ height: 300 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={expenseTimeDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="date" />
+                                                <YAxis />
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                />
+                                                <Legend />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="amount" 
+                                                    name="Gider Miktarı" 
+                                                    stroke="#8884d8" 
+                                                    strokeWidth={2}
+                                                    activeDot={{ r: 8 }}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="text-center text-gray-500 mt-4">
+                                        <p>Bu grafik, {timeRange === 'daily' ? 'son hafta' : timeRange === 'weekly' ? 'bu ay' : 'bu yıl'} içindeki giderlerin zamansal dağılımını göstermektedir.</p>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                    </Card>
+                </Col>
+            </Row>
 
-                    {/* Toplam Stok Durumu */}
-                    <Row gutter={[16, 16]} className="mt-6">
-                        <Col xs={24}>
-                            <Card 
-                                title="Toplam Stok Durumu" 
-                                loading={loading}
-                                className="shadow-sm"
-                            >
-                                <div style={{ height: 400 }}>
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={totalStockStatus}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="date" />
-                                            <YAxis yAxisId="left" />
-                                            <YAxis yAxisId="right" orientation="right" />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Line 
-                                                yAxisId="left"
-                                                type="monotone" 
-                                                dataKey="totalStock" 
-                                                name="Toplam Ürün Sayısı"
-                                                stroke={colors.chartColors.line} 
-                                                strokeWidth={2}
-                                                dot={{ r: 4 }}
-                                            />
-                                            <Line 
-                                                yAxisId="right"
-                                                type="monotone" 
-                                                dataKey="palletCount" 
-                                                name="Palet Sayısı"
-                                                stroke={colors.chartColors.line} 
-                                                strokeWidth={2}
-                                                dot={{ r: 4 }}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </Card>
-                        </Col>
-                    </Row>
-                </div>
-            </div>
-        </ConfigProvider>
+            {/* Ürün Fiyat Analizi */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Ürün Fiyat Analizi" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="En Yüksek Fiyatlı 15 Ürün">
+                                    <div style={{ height: 400 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={productPriceData} layout="vertical" margin={{ top: 20, right: 30, left: 150, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis type="number" />
+                                                <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 12 }} />
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                    labelFormatter={(label) => `Ürün: ${label}`}
+                                                />
+                                                <Legend />
+                                                <Bar dataKey="price" name="Birim Fiyat" fill="#8884d8" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Kategori Bazlı Ortalama Fiyat">
+                                    <div style={{ height: 400 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={categoryPriceAnalysis} layout="vertical" margin={{ top: 20, right: 30, left: 150, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis type="number" />
+                                                <YAxis type="category" dataKey="category" width={140} tick={{ fontSize: 12 }} />
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                    labelFormatter={(label) => `Kategori: ${label}`}
+                                                />
+                                                <Legend />
+                                                <Bar dataKey="averagePrice" name="Ortalama Fiyat" fill="#82ca9d" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]} className="mt-4">
+                            <Col xs={24}>
+                                <Card type="inner" title="Fiyat Aralığı Dağılımı">
+                                    <div style={{ height: 300 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={priceDistribution}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    fill="#8884d8"
+                                                    label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                                >
+                                                    {priceDistribution.map((entry, index) => (
+                                                        <Cell 
+                                                            key={`cell-${index}`} 
+                                                            fill={COLORS[index % COLORS.length]} 
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    formatter={(value, name) => [`${value} ürün`, `${name}`]}
+                                                    separator=": "
+                                                />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Ürün Gelir Analizi */}
+            <Row gutter={[16, 16]} className="mt-6">
+                <Col xs={24}>
+                    <Card 
+                        title="Ürün Gelir Analizi" 
+                        loading={loading}
+                        className="shadow-sm"
+                    >
+                        <Row gutter={[16, 16]} className="mb-4">
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Toplam Ürün Geliri">
+                                    <p className="text-2xl font-bold text-center">
+                                        {productRevenue?.toLocaleString('tr-TR')} TL
+                                    </p>
+                                    <div className="text-center text-gray-500 mt-2">
+                                        <p>Toplam stok değeri (fiyat × miktar)</p>
+                                    </div>
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Ortalama Ürün Fiyatı">
+                                    <p className="text-2xl font-bold text-center">
+                                        {(productPriceData.length > 0 ? 
+                                            productPriceData.reduce((sum, product) => sum + product.price, 0) / productPriceData.length : 0
+                                        ).toLocaleString('tr-TR')} TL
+                                    </p>
+                                    <div className="text-center text-gray-500 mt-2">
+                                        <p>Tüm ürünlerin ortalama fiyatı</p>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="En Yüksek Gelir Getiren Ürünler">
+                                    <Table
+                                        dataSource={productPriceData.map(product => ({
+                                            ...product,
+                                            totalValue: (product.price || 0) * (product.quantity || 1)
+                                        })).sort((a, b) => b.totalValue - a.totalValue).slice(0, 5)}
+                                        columns={[
+                                            {
+                                                title: 'Ürün Adı',
+                                                dataIndex: 'name',
+                                                key: 'name',
+                                                ellipsis: true
+                                            },
+                                            {
+                                                title: 'Kategori',
+                                                dataIndex: 'category',
+                                                key: 'category',
+                                                render: (category) => (
+                                                    <Tag color="blue">{category || 'Kategorisiz'}</Tag>
+                                                ),
+                                            },
+                                            {
+                                                title: 'Birim Fiyat',
+                                                dataIndex: 'price',
+                                                key: 'price',
+                                                render: (price) => `${(price || 0).toLocaleString('tr-TR')} TL`,
+                                            },
+                                            {
+                                                title: 'Miktar',
+                                                dataIndex: 'quantity',
+                                                key: 'quantity',
+                                            },
+                                            {
+                                                title: 'Toplam Değer',
+                                                dataIndex: 'totalValue',
+                                                key: 'totalValue',
+                                                render: (value) => `${(value || 0).toLocaleString('tr-TR')} TL`,
+                                                defaultSortOrder: 'descend',
+                                                sorter: (a, b) => a.totalValue - b.totalValue,
+                                            }
+                                        ]}
+                                        pagination={false}
+                                        scroll={{ x: 'max-content' }}
+                                    />
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Card type="inner" title="Kategori Bazında Gelirler">
+                                    <div style={{ height: 300 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={revenueByCategory}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    fill="#8884d8"
+                                                    label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                                >
+                                                    {revenueByCategory.map((entry, index) => (
+                                                        <Cell 
+                                                            key={`cell-${index}`} 
+                                                            fill={COLORS[index % COLORS.length]} 
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                        <Row gutter={[16, 16]} className="mt-4">
+                            <Col xs={24}>
+                                <Card type="inner" title="Zaman Bazlı Ürün Hareketleri ve Tahmini Gelir">
+                                    <div style={{ height: 300 }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={revenueTimeDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="date" />
+                                                <YAxis />
+                                                <Tooltip 
+                                                    formatter={(value) => [`${value.toLocaleString('tr-TR')} TL`]}
+                                                />
+                                                <Legend />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="amount" 
+                                                    name="Tahmini Gelir" 
+                                                    stroke="#4CAF50" 
+                                                    strokeWidth={2}
+                                                    activeDot={{ r: 8 }}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="text-center text-gray-500 mt-4">
+                                        <p>Bu grafik, {timeRange === 'daily' ? 'son hafta' : timeRange === 'weekly' ? 'bu ay' : 'bu yıl'} içindeki ürün giriş miktarlarına dayalı tahmini gelir değişimini göstermektedir.</p>
+                                    </div>
+                                </Card>
+                            </Col>
+                        </Row>
+                    </Card>
+                </Col>
+            </Row>
+        </div>
     );
 };
 
