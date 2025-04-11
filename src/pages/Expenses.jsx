@@ -3,6 +3,9 @@ import { MdAdd, MdFileDownload, MdPrint, MdEdit, MdDelete } from 'react-icons/md
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import { useAuth } from '../contexts/AuthContext';
+import UnauthorizedAccess from '../components/UnauthorizedAccess';
+import { Spin } from 'antd';
 
 // Debug utils
 const logError = (error, context) => {
@@ -19,6 +22,9 @@ const logError = (error, context) => {
 };
 
 const Expenses = () => {
+  const { user, loading: authLoading } = useAuth();
+  const userRole = user?.role;
+
   const [expenses, setExpenses] = useState([]);
   const [summaryData, setSummaryData] = useState({
     totalExpense: 0,
@@ -163,6 +169,18 @@ const Expenses = () => {
       }
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (userRole !== 'admin') {
+    return <UnauthorizedAccess message="Giderler sayfasını görüntüleme yetkiniz bulunmamaktadır."/>;
+  }
 
   return (
     <div className="p-6">

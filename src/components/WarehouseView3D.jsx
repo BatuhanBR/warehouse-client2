@@ -27,6 +27,9 @@ const WarehouseView3D = () => {
     const cameraRef = useRef(null);
     const rendererRef = useRef(null);
     const controlsRef = useRef(null);
+    const frameIdRef = useRef(null);
+    const raycasterRef = useRef(new THREE.Raycaster());
+    const mouseRef = useRef(new THREE.Vector2());
 
     // Raf boyutları
     const SHELF_DIMENSIONS = {
@@ -286,18 +289,17 @@ const WarehouseView3D = () => {
         sceneRef.current.background = new THREE.Color(isDark ? 0x1a202c : 0xf0f0f0);
 
         // Camera
-        cameraRef.current = new THREE.PerspectiveCamera(
-            45,
-            mountRef.current.clientWidth / mountRef.current.clientHeight,
-            0.1,
-            1000
-        );
-        cameraRef.current.position.set(5, 5, 5);
+        const width = mountRef.current.clientWidth;
+        const height = mountRef.current.clientHeight;
+        const aspectRatio = width / height;
+        cameraRef.current = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+        cameraRef.current.position.set(5, 5, 10);
 
         // Renderer
         rendererRef.current = new THREE.WebGLRenderer({ antialias: true });
-        rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+        rendererRef.current.setSize(width, height);
         rendererRef.current.setPixelRatio(window.devicePixelRatio);
+        rendererRef.current.shadowMap.enabled = true;
         mountRef.current.appendChild(rendererRef.current.domElement);
 
         // Controls
@@ -312,29 +314,71 @@ const WarehouseView3D = () => {
         sceneRef.current.add(ambientLight);
 
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 5, 5);
+        directionalLight.position.set(5, 10, 7);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
         sceneRef.current.add(directionalLight);
 
         // Grid
         const gridHelper = new THREE.GridHelper(20, 20);
         sceneRef.current.add(gridHelper);
 
+        // Event listeners
+        window.addEventListener('resize', handleResize);
+        mountRef.current.addEventListener('mousedown', handleMouseClick);
+        
         // Animation loop
         const animate = () => {
-            requestAnimationFrame(animate);
-            controlsRef.current.update();
-            rendererRef.current.render(sceneRef.current, cameraRef.current);
+            frameIdRef.current = requestAnimationFrame(animate);
+            
+            if (controlsRef.current) {
+                controlsRef.current.update();
+            }
+            
+            if (rendererRef.current && sceneRef.current && cameraRef.current) {
+                rendererRef.current.render(sceneRef.current, cameraRef.current);
+            }
         };
+        
         animate();
 
+        // Fetch data and render racks
+        setSelectedRack(1);
+        
         // Cleanup
         return () => {
-            if (mountRef.current && rendererRef.current.domElement) {
+            window.removeEventListener('resize', handleResize);
+            if (mountRef.current && rendererRef.current) {
+                mountRef.current.removeEventListener('mousedown', handleMouseClick);
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
-            rendererRef.current.dispose();
+            
+            if (frameIdRef.current) {
+                cancelAnimationFrame(frameIdRef.current);
+            }
+            
+            // Dispose resources
+            if (sceneRef.current) {
+                sceneRef.current.traverse((object) => {
+                    if (object instanceof THREE.Mesh) {
+                        if (object.geometry) object.geometry.dispose();
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach(material => material.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    }
+                });
+            }
+            
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+            }
         };
-    }, []);
+    }, [isDark]);
 
     // Tıklama olayları
     useEffect(() => {
@@ -372,25 +416,28 @@ const WarehouseView3D = () => {
     }, []);
 
     // Window resize olayı
-    useEffect(() => {
-        const handleResize = () => {
-            if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+    const handleResize = () => {
+        if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+        
+        const width = mountRef.current.clientWidth;
+        const height = mountRef.current.clientHeight;
+        
+        cameraRef.current.aspect = width / height;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(width, height);
+    };
 
-            cameraRef.current.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-            cameraRef.current.updateProjectionMatrix();
-            rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-        };
-
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    // Handle mouse click
+    const handleMouseClick = (event) => {
+        // code for mouse click...
+    };
 
     // Ant Design tema konfigürasyonu
     const themeConfig = {
         algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
         token: {
             colorPrimary: '#1890ff',
-            borderRadius: 8,
+            borderRadius: 6,
         },
         components: {
             Select: {
@@ -406,9 +453,10 @@ const WarehouseView3D = () => {
 
     return (
         <ConfigProvider theme={themeConfig}>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <div style={{ 
                     position: 'absolute', 
+                    zIndex: 10, 
                     top: '20px', 
                     left: '20px',
                     background: isDark ? '#2d3748' : 'white',
@@ -418,16 +466,14 @@ const WarehouseView3D = () => {
                     zIndex: 1000
                 }}>
                     <Select
-                        style={{ width: 120 }}
+                        style={{ width: 150 }}
                         placeholder="Raf Seç"
                         onChange={handleRackSelect}
                         value={selectedRack}
                         className={isDark ? 'dark-select' : ''}
                     >
                         {[...Array(10)].map((_, i) => (
-                            <Select.Option key={i + 1} value={i + 1}>
-                                Raf {i + 1}
-                            </Select.Option>
+                            <Select.Option key={i+1} value={i+1}>Raf {i+1}</Select.Option>
                         ))}
                     </Select>
                 </div>
@@ -441,6 +487,7 @@ const WarehouseView3D = () => {
                 />
                 <div style={{ 
                     position: 'absolute', 
+                    zIndex: 10, 
                     top: '20px', 
                     right: '20px',
                     background: isDark ? '#2d3748' : 'white',
@@ -449,12 +496,11 @@ const WarehouseView3D = () => {
                     boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
                 }}>
                     <Button 
-                        type="primary"
-                        onClick={() => setIsModalOpen(true)}
-                        size="large"
+                        type="primary" 
                         icon={<PlusOutlined />}
+                        onClick={() => setIsModalOpen(true)}
                     >
-                        Ürün İşlemleri
+                        Yeni Ürün Ekle
                     </Button>
                 </div>
                 <WarehouseProductModal

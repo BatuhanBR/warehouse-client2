@@ -1,20 +1,36 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import UnauthorizedAccess from './UnauthorizedAccess';
+import { Spin } from 'antd';
 
-const PrivateRoute = () => {
-    const { user } = useAuth();
-    
-    // Debug için
-    console.log("PrivateRoute rendered, user:", user);
+const ProtectedRoute = ({ allowedRoles }) => {
+    const { user, loading } = useAuth();
+    const location = useLocation();
 
-    // Kullanıcı yoksa login'e yönlendir
-    if (!user) {
-        return <Navigate to="/login" />;
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <Spin size="large" />
+            </div>
+        ); 
     }
 
-    // Kullanıcı varsa alt route'ları render et
+    if (!user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        return (
+            <div className="flex justify-center items-center h-full">
+                <UnauthorizedAccess 
+                    message={`Bu sayfayı görüntülemek için gerekli yetkiye sahip değilsiniz. (Gereken: ${allowedRoles.join(' veya ')})`}
+                />
+            </div>
+        );
+    }
+
     return <Outlet />;
 };
 
-export default PrivateRoute; 
+export default ProtectedRoute; 

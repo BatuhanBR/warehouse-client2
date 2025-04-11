@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select, Popover, List, Typography, Empty } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Progress, Space, Select, Popover, List, Typography, Empty, ConfigProvider, theme as antTheme, Spin } from 'antd';
 import { 
     BarChart, Bar, LineChart, Line, PieChart, Pie, ResponsiveContainer, 
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell 
@@ -11,17 +11,33 @@ import { toast } from 'react-hot-toast';
 
 const { Option } = Select;
 const { Text } = Typography;
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
-const CHART_COLORS = {
-    bar: {
-        'Elektronik': '#1890ff',
-        'Giyim': '#00C49F',
-        'Kozmetik': '#FFBB28',
-        'Kitap': '#FF8042',
-        'Ev Eşyası': '#8884d8'
+// Dark/Light mode yerine sabit renk ayarları
+const colors = {
+    primary: ['#1890ff', '#096dd9'],
+    success: ['#52c41a', '#389e0d'],
+    warning: ['#faad14', '#d48806'],
+    error: ['#ff4d4f', '#cf1322'],
+    
+    // Grafikler için
+    chartColors: {
+        bar: {
+            'Elektronik': '#1890ff',
+            'Giyim': '#00C49F',
+            'Kozmetik': '#FFBB28',
+            'Kitap': '#FF8042',
+            'Ev Eşyası': '#8884d8'
+        },
+        pieColors: ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1'],
+        line: '#00C49F'
     },
-    line: '#00C49F'
+    
+    // Kartlar için
+    cardBg: 'white',
+    cardShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    cardText: 'rgba(0, 0, 0, 0.85)',
+    cardBorder: '1px solid #f0f0f0'
 };
 
 const Dashboard = () => {
@@ -375,12 +391,6 @@ const Dashboard = () => {
                                 return '0';
                             }}
                         />
-                        <div className="mt-2 text-sm text-gray-500">
-                            Palet Başına: {summaryData?.stockValue && warehouseOccupancy?.totalProducts ? 
-                                new Intl.NumberFormat('tr-TR').format(
-                                    (summaryData.stockValue / warehouseOccupancy.totalProducts).toFixed(2)
-                                ) : '0'} TL
-                        </div>
                     </Card>
                 </Col>
 
@@ -495,7 +505,7 @@ const Dashboard = () => {
                                         {categoryDistribution.map((entry, index) => (
                                             <Cell 
                                                 key={`cell-${index}`} 
-                                                fill={COLORS[index % COLORS.length]} 
+                                                fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
                                             />
                                         ))}
                                     </Pie>
@@ -534,7 +544,7 @@ const Dashboard = () => {
                                         {overallCategoryDistribution.map((entry, index) => (
                                             <Cell 
                                                 key={`cell-${index}`} 
-                                                fill={COLORS[index % COLORS.length]} 
+                                                fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
                                             />
                                         ))}
                                     </Pie>
@@ -573,7 +583,7 @@ const Dashboard = () => {
                                         type="monotone" 
                                         dataKey="total" 
                                         name="Net Değişim"
-                                        stroke="#2196F3" 
+                                        stroke={colors.chartColors.line} 
                                         strokeWidth={2}
                                         dot={{ r: 4 }}
                                     />
@@ -659,7 +669,7 @@ const Dashboard = () => {
             <Row gutter={[16, 16]} className="mt-6">
                 <Col xs={24}>
                     <Card 
-                        title="En Değerli 5 Ürün" 
+                        title="En çok gelir elde edilen 5 ürün"
                         loading={loading}
                         className="shadow-sm"
                     >
@@ -731,7 +741,7 @@ const Dashboard = () => {
                                         type="monotone" 
                                         dataKey="totalStock" 
                                         name="Toplam Ürün Sayısı"
-                                        stroke="#4CAF50" 
+                                        stroke={colors.chartColors.bar['Elektronik']} 
                                         strokeWidth={2}
                                         dot={{ r: 4 }}
                                     />
@@ -740,7 +750,7 @@ const Dashboard = () => {
                                         type="monotone" 
                                         dataKey="palletCount" 
                                         name="Palet Sayısı"
-                                        stroke="#FF9800" 
+                                        stroke={colors.chartColors.bar['Giyim']} 
                                         strokeWidth={2}
                                         dot={{ r: 4 }}
                                     />
@@ -849,13 +859,13 @@ const Dashboard = () => {
                                                     cx="50%"
                                                     cy="50%"
                                                     outerRadius={100}
-                                                    fill="#8884d8"
+                                                    fill={colors.chartColors.bar['Giyim']}
                                                     label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
                                                 >
                                                     {expenseCategoryDistribution.map((entry, index) => (
                                                         <Cell 
                                                             key={`cell-${index}`} 
-                                                            fill={COLORS[index % COLORS.length]} 
+                                                            fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
                                                         />
                                                     ))}
                                                 </Pie>
@@ -886,7 +896,7 @@ const Dashboard = () => {
                                                     type="monotone" 
                                                     dataKey="amount" 
                                                     name="Gider Miktarı" 
-                                                    stroke="#8884d8" 
+                                                    stroke={colors.chartColors.bar['Giyim']} 
                                                     strokeWidth={2}
                                                     activeDot={{ r: 8 }}
                                                 />
@@ -925,7 +935,7 @@ const Dashboard = () => {
                                                     labelFormatter={(label) => `Ürün: ${label}`}
                                                 />
                                                 <Legend />
-                                                <Bar dataKey="price" name="Birim Fiyat" fill="#8884d8" />
+                                                <Bar dataKey="price" name="Birim Fiyat" fill={colors.chartColors.bar['Elektronik']} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -944,7 +954,7 @@ const Dashboard = () => {
                                                     labelFormatter={(label) => `Kategori: ${label}`}
                                                 />
                                                 <Legend />
-                                                <Bar dataKey="averagePrice" name="Ortalama Fiyat" fill="#82ca9d" />
+                                                <Bar dataKey="averagePrice" name="Ortalama Fiyat" fill={colors.chartColors.bar['Giyim']} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -964,13 +974,13 @@ const Dashboard = () => {
                                                     cx="50%"
                                                     cy="50%"
                                                     outerRadius={100}
-                                                    fill="#8884d8"
+                                                    fill={colors.chartColors.bar['Giyim']}
                                                     label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
                                                 >
                                                     {priceDistribution.map((entry, index) => (
                                                         <Cell 
                                                             key={`cell-${index}`} 
-                                                            fill={COLORS[index % COLORS.length]} 
+                                                            fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
                                                         />
                                                     ))}
                                                 </Pie>
@@ -1041,7 +1051,7 @@ const Dashboard = () => {
                                                 dataIndex: 'category',
                                                 key: 'category',
                                                 render: (category) => (
-                                                    <Tag color="blue">{category || 'Kategorisiz'}</Tag>
+                                                    <Tag color={colors.chartColors.bar[category] || 'default'}>{category || 'Kategorisiz'}</Tag>
                                                 ),
                                             },
                                             {
@@ -1081,13 +1091,13 @@ const Dashboard = () => {
                                                     cx="50%"
                                                     cy="50%"
                                                     outerRadius={100}
-                                                    fill="#8884d8"
+                                                    fill={colors.chartColors.bar['Giyim']}
                                                     label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
                                                 >
                                                     {revenueByCategory.map((entry, index) => (
                                                         <Cell 
                                                             key={`cell-${index}`} 
-                                                            fill={COLORS[index % COLORS.length]} 
+                                                            fill={colors.chartColors.pieColors[index % colors.chartColors.pieColors.length]} 
                                                         />
                                                     ))}
                                                 </Pie>
@@ -1103,7 +1113,10 @@ const Dashboard = () => {
                         </Row>
                         <Row gutter={[16, 16]} className="mt-4">
                             <Col xs={24}>
-                                <Card type="inner" title="Zaman Bazlı Ürün Hareketleri ve Tahmini Gelir">
+                                <Card 
+                                    type="inner" 
+                                    title="Zamana Göre Gelir"
+                                >
                                     <div style={{ height: 300 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart data={revenueTimeDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -1118,7 +1131,7 @@ const Dashboard = () => {
                                                     type="monotone" 
                                                     dataKey="amount" 
                                                     name="Tahmini Gelir" 
-                                                    stroke="#4CAF50" 
+                                                    stroke={colors.chartColors.bar['Giyim']} 
                                                     strokeWidth={2}
                                                     activeDot={{ r: 8 }}
                                                 />

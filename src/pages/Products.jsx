@@ -24,9 +24,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
 const Products = () => {
+  // Context hooks
   const { theme } = useTheme();
-  const { t } = useLanguage();
   const isDark = theme === 'dark';
+  const { t } = useLanguage();
   
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -416,24 +417,30 @@ const Products = () => {
     });
   };
 
-  // Silme işlemi
-  const confirmDelete = async () => {
-    try {
-      if (typeof deleteModal.productId === 'number') {
-        // Tekli silme
-        await productService.deleteProduct(deleteModal.productId);
-        toast.success('Ürün başarıyla silindi!');
-      } else if (Array.isArray(deleteModal.productId)) {
-        // Toplu silme
-        await productService.bulkDeleteProducts(deleteModal.productId);
-        toast.success(`${deleteModal.productId.length} ürün başarıyla silindi!`);
+  // Ürün silme onayı
+  const confirmDelete = async (description) => {
+    if (deleteModal.productId) {
+      try {
+        setLoading(true);
+        // product ID'si bir dizi ise (toplu silme), bulkDeleteProducts'u çağır
+        if (Array.isArray(deleteModal.productId)) {
+          await productService.bulkDeleteProducts(deleteModal.productId, description);
+          toast.success('Seçili ürünler başarıyla silindi');
+        } else {
+          // Tek ürün silme
+          await productService.deleteProduct(deleteModal.productId, description);
+          toast.success('Ürün başarıyla silindi');
+        }
+        // Silme işleminden sonra verileri yenile ve seçimi temizle
+        await fetchProducts(pagination.currentPage, pagination.itemsPerPage, filters);
+        setSelectedProducts([]);
+      } catch (error) {
+        console.error('Silme hatası:', error);
+        toast.error('Ürün silinirken bir hata oluştu');
+      } finally {
+        setLoading(false);
+        setDeleteModal({ isOpen: false, productId: null, productName: '' });
       }
-      fetchProducts(); // Listeyi yenile
-      setDeleteModal({ isOpen: false, productId: null, productName: '' });
-      setSelectedProducts([]);
-    } catch (error) {
-      toast.error('Silme işlemi sırasında bir hata oluştu!');
-      console.error('Error deleting products:', error);
     }
   };
 

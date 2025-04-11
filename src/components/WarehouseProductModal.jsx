@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Space, Typography, Select, Form, Row, Col, Card, Descriptions, Tag, Empty, Divider } from 'antd';
+import { Modal, Button, Space, Typography, Select, Form, Row, Col, Card, Descriptions, Tag, Empty, Divider, Input, InputNumber, Spin } from 'antd';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { useTheme } from '../contexts/ThemeContext';
@@ -299,177 +299,182 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                 padding: '20px' 
             }}
             className={isDark ? 'dark-modal' : ''}
+            maskStyle={{
+                backgroundColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.45)',
+            }}
         >
-            {showForm ? (
-                <Form 
-                    form={form}
-                    layout="vertical"
-                    onValuesChange={(_, allValues) => {
-                        checkLocationStatus(allValues);
-                    }}
-                >
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name="rackNumber"
-                                label="Raf No"
-                                rules={[{ required: true }]}
-                            >
-                                <Select placeholder="Raf seçin">
-                                    {[...Array(10)].map((_, i) => (
-                                        <Option key={i + 1} value={i + 1}>
-                                            Raf {i + 1}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="level"
-                                label="Kat"
-                                rules={[{ required: true }]}
-                            >
-                                <Select placeholder="Kat seçin">
-                                    {[...Array(4)].map((_, i) => (
-                                        <Option key={i+1} value={i+1}>
-                                            {i+1}. Kat
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name="position"
-                                label="Pozisyon"
-                                rules={[{ required: true }]}
-                            >
-                                <Select placeholder="Pozisyon seçin">
-                                    {[...Array(4)].map((_, i) => (
-                                        <Option key={i + 1} value={i + 1}>
-                                            Pozisyon {i + 1}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    {selectedLocation && (
-                        <Space direction="vertical" style={{ width: '100%', marginTop: 16 }}>
-                            <Title level={5}>Seçili Konum: {selectedLocation}</Title>
-                            
-                            {locationStatus?.isOccupied ? (
-                                <>
-                                    <Text type={isDark ? "warning" : "danger"}>Bu konumda ürün mevcut</Text>
-                                    <Text>{locationStatus.productData?.name}</Text>
-                                    <Button 
-                                        danger
-                                        type="primary"
-                                        onClick={handleRemoveProduct}
-                                        loading={loading}
-                                        style={{ marginTop: 8 }}
-                                    >
-                                        Ürünü Çıkar
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Text type={isDark ? "success" : "success"}>Bu konum boş</Text>
-                                    <Form.Item
-                                        name="productId"
-                                        label="Eklenecek Ürün"
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Select placeholder="Ürün seçin" showSearch optionFilterProp="children">
-                                            {availableProducts.map(product => (
-                                                <Option key={product.id} value={product.id}>
-                                                    {product.name} (Stok: {product.quantity})
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
-                                    <Button 
-                                        type="primary"
-                                        onClick={handleAddProduct}
-                                        loading={loading}
-                                    >
-                                        Ürünü Ekle
-                                    </Button>
-                                </>
-                            )}
-                        </Space>
-                    )}
-                </Form>
-            ) : (
-                <>
-                    <Card 
-                        title={
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Konum: {selectedLocation}</span>
-                                <Tag color={locationStatus?.isOccupied ? 'blue' : 'green'}>
-                                    {locationStatus?.isOccupied ? 'Dolu' : 'Boş'}
-                                </Tag>
-                            </div>
-                        }
-                        bordered={false}
-                        className={isDark ? 'bg-gray-800 text-white' : ''}
+            <Spin spinning={loading}>
+                {showForm ? (
+                    <Form 
+                        form={form}
+                        layout="vertical"
+                        onValuesChange={(_, allValues) => {
+                            checkLocationStatus(allValues);
+                        }}
                     >
-                        {locationStatus?.isOccupied && locationStatus?.productData ? (
-                            <Descriptions 
-                                bordered 
-                                column={{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }}
-                                className={isDark ? 'descriptions-dark' : ''}
-                            >
-                                <Descriptions.Item label="Ürün Adı">{locationStatus.productData.name}</Descriptions.Item>
-                                <Descriptions.Item label="SKU">{locationStatus.productData.sku || 'N/A'}</Descriptions.Item>
-                                <Descriptions.Item label="Kategori">{locationStatus.productData?.Category?.name || 'N/A'}</Descriptions.Item>
-                                <Descriptions.Item label="Miktar">{locationStatus.productData.quantity}</Descriptions.Item>
-                                <Descriptions.Item label="Ağırlık">{locationStatus.productData.weight} kg</Descriptions.Item>
+                        <Row gutter={16}>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="rackNumber"
+                                    label="Raf No"
+                                    rules={[{ required: true }]}
+                                >
+                                    <Select placeholder="Raf seçin">
+                                        {[...Array(10)].map((_, i) => (
+                                            <Option key={i + 1} value={i + 1}>
+                                                Raf {i + 1}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="level"
+                                    label="Kat"
+                                    rules={[{ required: true }]}
+                                >
+                                    <Select placeholder="Kat seçin">
+                                        {[...Array(4)].map((_, i) => (
+                                            <Option key={i+1} value={i+1}>
+                                                {i+1}. Kat
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="position"
+                                    label="Pozisyon"
+                                    rules={[{ required: true }]}
+                                >
+                                    <Select placeholder="Pozisyon seçin">
+                                        {[...Array(4)].map((_, i) => (
+                                            <Option key={i + 1} value={i + 1}>
+                                                Pozisyon {i + 1}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        {selectedLocation && (
+                            <Space direction="vertical" style={{ width: '100%', marginTop: 16 }}>
+                                <Title level={5}>Seçili Konum: {selectedLocation}</Title>
                                 
-                                {getSizeCategory(locationStatus.productData) && (
-                                    <Descriptions.Item label="Boyut Kategorisi">
-                                        <Tag color={getSizeCategory(locationStatus.productData).color}>
-                                            {getSizeCategory(locationStatus.productData).category} 
-                                            ({(getSizeCategory(locationStatus.productData).volume/1000).toFixed(3)} L)
-                                        </Tag>
-                                    </Descriptions.Item>
+                                {locationStatus?.isOccupied ? (
+                                    <>
+                                        <Text type={isDark ? "warning" : "danger"}>Bu konumda ürün mevcut</Text>
+                                        <Text>{locationStatus.productData?.name}</Text>
+                                        <Button 
+                                            danger
+                                            type="primary"
+                                            onClick={handleRemoveProduct}
+                                            loading={loading}
+                                            style={{ marginTop: 8 }}
+                                        >
+                                            Ürünü Çıkar
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text type={isDark ? "success" : "success"}>Bu konum boş</Text>
+                                        <Form.Item
+                                            name="productId"
+                                            label="Eklenecek Ürün"
+                                            rules={[{ required: true }]}
+                                        >
+                                            <Select placeholder="Ürün seçin" showSearch optionFilterProp="children">
+                                                {availableProducts.map(product => (
+                                                    <Option key={product.id} value={product.id}>
+                                                        {product.name} (Stok: {product.quantity})
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+                                        <Button 
+                                            type="primary"
+                                            onClick={handleAddProduct}
+                                            loading={loading}
+                                        >
+                                            Ürünü Ekle
+                                        </Button>
+                                    </>
                                 )}
-                                
-                                <Descriptions.Item label="Boyutlar">
-                                    {locationStatus.productData.width} × {locationStatus.productData.height} × {locationStatus.productData.length} cm
-                                </Descriptions.Item>
-                                
-                                <Descriptions.Item label="Açıklama" span={3}>
-                                    {locationStatus.productData.description || 'Açıklama yok'}
-                                </Descriptions.Item>
-                            </Descriptions>
-                        ) : (
-                            <Empty description="Bu konumda ürün bulunmuyor" />
+                            </Space>
                         )}
-                    </Card>
-                    
-                    <Divider />
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Button onClick={() => setShowForm(true)}>
-                            Ürün İşlemlerine Geç
-                        </Button>
+                    </Form>
+                ) : (
+                    <>
+                        <Card 
+                            title={
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Konum: {selectedLocation}</span>
+                                    <Tag color={locationStatus?.isOccupied ? 'blue' : 'green'}>
+                                        {locationStatus?.isOccupied ? 'Dolu' : 'Boş'}
+                                    </Tag>
+                                </div>
+                            }
+                            bordered={false}
+                            className={isDark ? 'bg-gray-800 text-white' : ''}
+                        >
+                            {locationStatus?.isOccupied && locationStatus?.productData ? (
+                                <Descriptions 
+                                    bordered 
+                                    column={{ xxl: 3, xl: 3, lg: 2, md: 2, sm: 1, xs: 1 }}
+                                    className={isDark ? 'descriptions-dark' : ''}
+                                >
+                                    <Descriptions.Item label="Ürün Adı">{locationStatus.productData.name}</Descriptions.Item>
+                                    <Descriptions.Item label="SKU">{locationStatus.productData.sku || 'N/A'}</Descriptions.Item>
+                                    <Descriptions.Item label="Kategori">{locationStatus.productData?.Category?.name || 'N/A'}</Descriptions.Item>
+                                    <Descriptions.Item label="Miktar">{locationStatus.productData.quantity}</Descriptions.Item>
+                                    <Descriptions.Item label="Ağırlık">{locationStatus.productData.weight} kg</Descriptions.Item>
+                                    
+                                    {getSizeCategory(locationStatus.productData) && (
+                                        <Descriptions.Item label="Boyut Kategorisi">
+                                            <Tag color={getSizeCategory(locationStatus.productData).color}>
+                                                {getSizeCategory(locationStatus.productData).category} 
+                                                ({(getSizeCategory(locationStatus.productData).volume/1000).toFixed(3)} L)
+                                            </Tag>
+                                        </Descriptions.Item>
+                                    )}
+                                    
+                                    <Descriptions.Item label="Boyutlar">
+                                        {locationStatus.productData.width} × {locationStatus.productData.height} × {locationStatus.productData.length} cm
+                                    </Descriptions.Item>
+                                    
+                                    <Descriptions.Item label="Açıklama" span={3}>
+                                        {locationStatus.productData.description || 'Açıklama yok'}
+                                    </Descriptions.Item>
+                                </Descriptions>
+                            ) : (
+                                <Empty description="Bu konumda ürün bulunmuyor" />
+                            )}
+                        </Card>
                         
-                        {locationStatus?.isOccupied && (
-                            <Button 
-                                danger
-                                type="primary"
-                                onClick={handleRemoveProduct}
-                                loading={loading}
-                            >
-                                Ürünü Çıkar
+                        <Divider />
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button onClick={() => setShowForm(true)}>
+                                Ürün İşlemlerine Geç
                             </Button>
-                        )}
-                    </div>
-                </>
-            )}
+                            
+                            {locationStatus?.isOccupied && (
+                                <Button 
+                                    danger
+                                    type="primary"
+                                    onClick={handleRemoveProduct}
+                                    loading={loading}
+                                >
+                                    Ürünü Çıkar
+                                </Button>
+                            )}
+                        </div>
+                    </>
+                )}
+            </Spin>
         </Modal>
     );
 };

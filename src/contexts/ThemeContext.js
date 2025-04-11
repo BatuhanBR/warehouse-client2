@@ -7,42 +7,22 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  // localStorage'dan theme tercihi varsa oku, yoksa sistem tercihine bak
-  const getInitialTheme = () => {
-    const savedTheme = localStorage.getItem('theme');
-    
-    if (savedTheme) {
-      return savedTheme;
-    }
-    
-    // Sistemin tercihine bak
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    
-    return 'light';
-  };
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
-  const [theme, setTheme] = useState(getInitialTheme);
-
-  const toggleTheme = () => {
-    setTheme(prevTheme => {
-      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', newTheme);
-      return newTheme;
-    });
-  };
-
-  // Theme değiştiğinde HTML'e dark class'ı ekle/çıkar
   useEffect(() => {
-    const htmlElement = document.documentElement;
+    localStorage.setItem('theme', theme);
     
+    // Body class'ını da güncelleyelim
     if (theme === 'dark') {
-      htmlElement.classList.add('dark');
+      document.documentElement.classList.add('dark');
     } else {
-      htmlElement.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
 
   const value = {
     theme,

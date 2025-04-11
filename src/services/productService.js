@@ -60,19 +60,20 @@ const productService = {
   },
 
   // Ürün sil
-  deleteProduct: async (id) => {
+  deleteProduct: async (id, description) => {
     const response = await axios.delete(`${API_URL}/products/${id}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+      },
+      data: { description }
     });
     return response.data;
   },
 
   // Toplu ürün sil
-  bulkDeleteProducts: async (productIds) => {
+  bulkDeleteProducts: async (productIds, description) => {
     const response = await axios.post(`${API_URL}/products/bulk-delete`, 
-      { productIds },
+      { productIds, description },
       {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

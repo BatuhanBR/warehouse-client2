@@ -3,10 +3,15 @@ import axios from 'axios';
 import { Select, Card, Table, Button, Modal, ConfigProvider, theme as antTheme } from 'antd';
 import { toast } from 'react-hot-toast';
 import shelfService from '../services/shelfService';
+import { useTheme } from '../contexts/ThemeContext';
+import { ReloadOutlined } from '@ant-design/icons';
 
 const { defaultAlgorithm, darkAlgorithm } = antTheme;
+const { Option } = Select;
 
-const WarehouseASCIIView = ({ isDark }) => {
+const WarehouseASCIIView = () => {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const [loading, setLoading] = useState(false);
     const [selectedRack, setSelectedRack] = useState(null);
     const [rackLocations, setRackLocations] = useState([]);
@@ -66,6 +71,13 @@ const WarehouseASCIIView = ({ isDark }) => {
         }
     };
 
+    // Component yüklendiğinde Raf 1 verilerini otomatik yükle
+    useEffect(() => {
+        if (selectedRack === null) {
+            handleRackSelect(1);
+        }
+    }, []);
+
     // Ürün kaldırma işlemi
     const handleRemoveProduct = async (locationId) => {
         try {
@@ -116,95 +128,100 @@ const WarehouseASCIIView = ({ isDark }) => {
             return <div className={`text-center mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Lütfen bir raf seçin</div>;
         }
 
-        // Tüm raf seviyelerini ve pozisyonları bul
-        const levels = [...new Set(rackLocations.map(loc => loc.level))].sort((a, b) => a - b); // Küçükten büyüğe sırala (1,2,3,4)
-        const positions = [...new Set(rackLocations.map(loc => loc.position))].sort((a, b) => a - b); // Küçükten büyüğe sırala (1,2,3,4)
+        const levels = [...new Set(rackLocations.map(loc => loc.level))].sort((a, b) => a - b);
+        const positions = [...new Set(rackLocations.map(loc => loc.position))].sort((a, b) => a - b);
 
-        const width = 40; // Toplam genişlik
-        const cellWidth = 5; // Her hücrenin genişliği
+        const cellInnerWidth = 5; // Hücre içeriği için genişlik (örn: ' █ 1 ') 
+        const cellPadding = 1; // Hücre kenarları ile içerik arası boşluk
+        const cellWidth = cellInnerWidth + (cellPadding * 2); // Tam hücre genişliği (örn: |  █ 1  |)
+        const interCellSpace = 1; // Hücreler arası boşluk
+        const width = positions.length * (cellWidth + interCellSpace) - interCellSpace + 2; // Toplam genişlik (baş ve sondaki | dahil)
         const asciiRows = [];
-        
+
         // Raf başlığı
         const rackTitle = `RAF ${selectedRack}`;
         const titlePadding = Math.floor((width - rackTitle.length - 2) / 2);
+        const titlePaddingRight = width - rackTitle.length - 2 - titlePadding;
         asciiRows.push(`\n┌${'─'.repeat(width - 2)}┐`);
-        asciiRows.push(`│${' '.repeat(titlePadding)}${rackTitle}${' '.repeat(width - titlePadding - rackTitle.length - 2)}│`);
+        asciiRows.push(`│${' '.repeat(titlePadding)}${rackTitle}${' '.repeat(titlePaddingRight)}│`);
         asciiRows.push(`├${'─'.repeat(width - 2)}┤`);
-        
-        // Her seviye için yukarıdan aşağıya doğru
-        levels.reverse().forEach(level => {
-            const levelLabel = `Seviye ${level}:`;
-            // Seviye etiketi
-            asciiRows.push(`│ ${levelLabel}${' '.repeat(width - levelLabel.length - 3)}│`);
-            
-            // Üst sınır çizgisi
-            let upperBorder = '│ ';
-            positions.forEach(() => {
-                upperBorder += '┌' + '─'.repeat(cellWidth - 2) + '┐ ';
-            });
-            upperBorder += ' '.repeat(Math.max(0, width - upperBorder.length - 1)) + '│';
-            asciiRows.push(upperBorder);
-            
-            // Hücre içerikleri
-            let cellsRow = '│ ';
-            positions.forEach(position => {
+
+        // Seviyeler (Yukarıdan aşağıya)
+        levels.reverse().forEach((level, levelIndex) => {
+            // Seviye başlığı
+            const levelTitle = `Seviye ${level}`;
+            const levelTitlePadding = Math.floor((width - levelTitle.length - 2) / 2);
+            const levelTitlePaddingRight = width - levelTitle.length - 2 - levelTitlePadding;
+            //asciiRows.push(`│${' '.repeat(levelTitlePadding)}${levelTitle}${' '.repeat(levelTitlePaddingRight)}│`);
+            //asciiRows.push(`├${'─'.repeat(width - 2)}┤`); // Seviye başlığı altına çizgi isteğe bağlı
+
+            // Hücre satırı
+            let cellsRow = '│';
+            positions.forEach((position, index) => {
                 const location = rackLocations.find(
                     loc => loc.level === level && loc.position === position
                 );
-                
-                let cellContent;
+
+                let cellContentDisplay = '';
                 if (location) {
                     if (location.isOccupied && location.Product) {
-                        // Dolu hücre
-                        cellContent = `│${position}:D│`;
+                        // Dolu hücre: Blok + Pozisyon No
+                        cellContentDisplay = `█ ${position}`;
                     } else {
-                        // Boş hücre
-                        cellContent = `│${position}:B│`;
+                        // Boş hücre: Boşluk + Pozisyon No
+                        cellContentDisplay = `  ${position}`; // Boşluk bırakarak hizalama
                     }
                 } else {
-                    // Lokasyon yoksa tanımsız
-                    cellContent = `│${position}:?│`;
+                    // Tanımsız hücre: ? + Pozisyon No
+                    cellContentDisplay = `? ${position}`;
                 }
-                
-                // Hücre genişliğine göre içeriği ortala
-                const padding = Math.max(0, cellWidth - cellContent.length);
-                const leftPad = Math.floor(padding / 2);
-                const rightPad = padding - leftPad;
-                cellsRow += ' '.repeat(leftPad) + cellContent + ' '.repeat(rightPad) + ' ';
+
+                // Hücre içeriğini sabit genişliğe getir
+                const contentPadding = Math.max(0, cellInnerWidth - cellContentDisplay.length);
+                const contentLeftPad = Math.floor(contentPadding / 2);
+                const contentRightPad = contentPadding - contentLeftPad;
+                const finalCellContent = ' '.repeat(contentLeftPad) + cellContentDisplay + ' '.repeat(contentRightPad);
+
+                // Hücreyi satıra ekle (kenar boşlukları ve ayırıcı ile)
+                cellsRow += ' '.repeat(cellPadding) + finalCellContent + ' '.repeat(cellPadding);
+                if (index < positions.length - 1) {
+                    cellsRow += '│'; // Hücre ayırıcı
+                } else {
+                     cellsRow += '│'; // Satır sonu
+                }
             });
-            
-            // Satırı tamamla
-            cellsRow += ' '.repeat(Math.max(0, width - cellsRow.length - 1)) + '│';
             asciiRows.push(cellsRow);
-            
-            // Alt sınır çizgisi
-            let lowerBorder = '│ ';
-            positions.forEach(() => {
-                lowerBorder += '└' + '─'.repeat(cellWidth - 2) + '┘ ';
-            });
-            lowerBorder += ' '.repeat(Math.max(0, width - lowerBorder.length - 1)) + '│';
-            asciiRows.push(lowerBorder);
-            
-            // Seviyeler arası boşluk
-            if (level !== levels[0]) {
-                asciiRows.push(`│${' '.repeat(width - 2)}│`);
+
+            // Seviyeler arası çizgi (Son seviye hariç)
+            if (levelIndex < levels.length - 1) {
+                let separatorRow = '├';
+                 positions.forEach((_, index) => {
+                    separatorRow += '─'.repeat(cellWidth);
+                    if (index < positions.length - 1) {
+                         separatorRow += '┼'; // İç ayırıcı
+                    } else {
+                         separatorRow += '┤'; // Satır sonu ayırıcı
+                    }
+                 });
+                asciiRows.push(separatorRow);
             }
         });
-        
-        // Raf sonu
+
+        // Raf alt çizgisi
         asciiRows.push(`└${'─'.repeat(width - 2)}┘\n`);
-        
-        // ASCII açıklaması
-        asciiRows.push('Açıklama: D=Dolu, B=Boş, ?=Tanımsız');
-        
+
+        // Açıklama
+        asciiRows.push('Açıklama: █ = Dolu, [Boşluk] = Boş, ? = Tanımsız');
+
         return (
-            <div className="ascii-shelf flex justify-center">
-                <pre style={{ 
-                    fontFamily: 'monospace', 
-                    lineHeight: '1.2',
-                    textAlign: 'center',
-                    display: 'inline-block'
-                }} className={`p-4 rounded overflow-auto ${isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-800'}`}>
+            <div className="ascii-shelf flex justify-center my-4">
+                <pre style={{
+                    fontFamily: 'monospace', // Sabit genişlikli font önemli
+                    lineHeight: '1.4',      // Satır aralığını biraz artırdım
+                    textAlign: 'center',    // Ortalamak için 'center' yapıldı
+                    display: 'inline-block',
+                    cursor: 'default'
+                }} className={`p-4 rounded shadow-md overflow-auto ${isDark ? 'bg-gray-800 text-gray-200 border border-gray-700' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
                     {asciiRows.join('\n')}
                 </pre>
             </div>

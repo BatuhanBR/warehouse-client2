@@ -7,7 +7,7 @@ function Landing() {
     {
       icon: <FaWarehouse className="h-8 w-8" />,
       title: 'Akıllı Depolama',
-      description: 'Otomatik yerleştirme ve optimum alan kullanımı ile depolama verimliliğini artırın.'
+      description: 'Optimum alan kullanımı ile depolama verimliliğini artırın.'
     },
     {
       icon: <FaChartLine className="h-8 w-8" />,

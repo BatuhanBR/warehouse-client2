@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MdEmail, MdPhone, MdLocationOn, MdSupport } from 'react-icons/md';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 // Leaflet varsayılan ikon sorunu için çözüm
 delete L.Icon.Default.prototype._getIconUrl;
@@ -15,6 +17,45 @@ L.Icon.Default.mergeOptions({
 const Contact = () => {
   // Deponun konumu (örnek koordinatlar - kendi koordinatlarınızla değiştirin)
   const position = [38.45485378921997, 27.202245681708373]; // İzmir koordinatları
+
+  // Form state'leri
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    message: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Input değişikliklerini işle
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  // Formu gönder
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const response = await axios.post('http://localhost:3000/api/contact/send', formData);
+      
+      if (response.data.success) {
+        toast.success('Mesajınız başarıyla gönderildi!');
+        setFormData({ name: '', email: '', message: '' }); // Formu temizle
+      } else {
+        toast.error(response.data.message || 'Mesaj gönderilemedi.');
+      }
+    } catch (error) {
+      console.error("Mesaj gönderme hatası:", error);
+      toast.error('Mesaj gönderilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
@@ -57,35 +98,50 @@ const Contact = () => {
           <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
             <h2 className="text-xl font-semibold mb-6">Mesaj Gönderin</h2>
             
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                   Adınız
                 </label>
                 <input
                   type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                   placeholder="Adınız Soyadınız"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
                 <input
                   type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                   placeholder="ornek@email.com"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
                   Mesajınız
                 </label>
                 <textarea
+                  id="message"
+                  name="message"
                   rows="4"
+                  value={formData.message}
+                  onChange={handleChange}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                   placeholder="Mesajınızı buraya yazın..."
                 ></textarea>
@@ -93,9 +149,10 @@ const Contact = () => {
               
               <button
                 type="submit"
-                className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-500 transition-colors"
+                disabled={isSubmitting}
+                className={`w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-500 transition-colors ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                Gönder
+                {isSubmitting ? 'Gönderiliyor...' : 'Gönder'}
               </button>
             </form>
           </div>
