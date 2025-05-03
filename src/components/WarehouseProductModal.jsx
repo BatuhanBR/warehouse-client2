@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
+const WarehouseProductModal = ({ visible, onCancel, cellData, onSuccess }) => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const [form] = Form.useForm();
@@ -16,33 +16,49 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [locationStatus, setLocationStatus] = useState(null);
     const [showForm, setShowForm] = useState(false);
+    const [currentCellData, setCurrentCellData] = useState(null);
 
     useEffect(() => {
         if (visible) {
-            // Eğer cellData varsa (bir hücreye tıklandıysa) direkt o verileri göster
-            if (cellData) {
-                setSelectedLocation(`R${cellData.rackNumber}-${cellData.level}-${cellData.position}`);
-                setLocationStatus({
-                    isOccupied: cellData.locationData?.isOccupied || false,
-                    productData: cellData.locationData?.Product || null
-                });
-                setShowForm(false);
+            // Eğer cellData varsa (yönetim modalından veya 3D tıklamadan)
+            // Artık cellData doğrudan API'den gelen lokasyon/hücre verisi
+            if (cellData && cellData.code) { // cellData'nın geçerli bir hücre verisi olup olmadığını kontrol et (örn: code alanı var mı?)
+                const locData = cellData; // cellData zaten lokasyon verisi
+                setSelectedLocation(`R${locData.rackNumber}-${locData.level}-${locData.position}`);
                 
-                // Formu başlangıç değerleriyle doldur
-                form.setFieldsValue({
-                    rackNumber: cellData.rackNumber,
-                    level: cellData.level,
-                    position: cellData.position
+                const firstPallet = locData.pallets?.[0];
+                const productData = firstPallet?.product || null;
+                
+                setLocationStatus({
+                    isOccupied: locData.isOccupied || false, 
+                    productData: productData, 
+                    usedCapacity: locData.usedCapacity || 0,
+                    totalCapacity: locData.totalCapacity || 2
                 });
+                // Ürün varsa detayları göster (formu gösterme)
+                // Ürün yoksa (Ekle'ye basıldıysa) formu göster
+                setShowForm(!productData); 
+                
+                // Eğer formu gösteriyorsak, başlangıç değerlerini ayarla
+                if (!productData) {
+                form.setFieldsValue({
+                        rackNumber: locData.rackNumber,
+                        level: locData.level,
+                        position: locData.position
+                });
+                    fetchAvailableProducts(); // Eklenecek ürünleri getir
+                }
+
             } else {
-                // Eğer direkt modal açıldıysa, form göster
+                // Eğer cellData yoksa (örn: eski + butonuyla direkt açıldıysa - artık kullanılmıyor olmalı)
+                // Veya geçersiz veri geldiyse, formu göster
                 fetchAvailableProducts();
                 form.resetFields();
                 setLocationStatus(null);
                 setShowForm(true);
             }
         }
-    }, [visible, cellData]);
+    }, [visible, cellData, form]); // form'u dependency array'e ekle
 
     const fetchAvailableProducts = async () => {
         try {
@@ -87,7 +103,9 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                         // Hücre bulundu, durumunu kontrol et
                         setLocationStatus({
                             isOccupied: cell?.isOccupied || false,
-                            productData: cell?.Product || null
+                            productData: cell?.Product || null,
+                            usedCapacity: cell?.usedCapacity || 0,
+                            totalCapacity: cell?.totalCapacity || 2
                         });
                         setSelectedLocation(locationCode);
                     } else {
@@ -95,7 +113,9 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                         console.log("Hücre bulunamadı, boş olarak kabul ediliyor:", locationCode);
                         setLocationStatus({
                             isOccupied: false,
-                            productData: null
+                            productData: null,
+                            usedCapacity: 0,
+                            totalCapacity: 2
                         });
                         setSelectedLocation(locationCode);
                     }
@@ -107,7 +127,9 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                 // API çağrısı başarısız olduysa, manuel olarak konum oluştur
                 setLocationStatus({
                     isOccupied: false,
-                    productData: null
+                    productData: null,
+                    usedCapacity: 0,
+                    totalCapacity: 2
                 });
                 setSelectedLocation(locationCode);
             }
@@ -129,51 +151,29 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
             setLoading(true);
 
             const productId = values.productId;
-            const product = availableProducts.find(p => p.id === productId);
+            const targetLocationId = cellData?.id;
             
-            if (!product) {
-                throw new Error("Ürün bulunamadı");
+            if (!productId || !targetLocationId) {
+                throw new Error("Eklenecek ürün veya hedef lokasyon seçilemedi.");
             }
 
-            // Önce ürün verilerini al
-            const productResponse = await axios.get(`http://localhost:3000/api/products/${productId}`, {
+            console.log(`Adding product ${productId} to location ${targetLocationId}`);
+
+            await axios.put(`http://localhost:3000/api/products/${productId}`, 
+                { locationId: targetLocationId },
+                {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            });
-
-            if (!productResponse.data.success) {
-                throw new Error("Ürün bilgileri alınamadı");
-            }
-
-            const productData = productResponse.data.data;
-
-            // Ürünü güncelle - tüm mevcut bilgileri koruyarak locationId'yi güncelle
-            await axios.put(`http://localhost:3000/api/products/${productId}`, {
-                name: productData.name,
-                sku: productData.sku,
-                description: productData.description || '',
-                quantity: productData.quantity,
-                price: productData.price || 0,
-                minStock: productData.minStockLevel || 0,
-                categoryId: productData.categoryId,
-                locationId: selectedLocation,  // Lokasyon bilgisini güncelliyoruz
-                company: productData.company || '',
-                weight: productData.weight || 0,
-                sizeCategory: productData.sizeCategory || ''
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
-            });
+            );
 
-            // Stok giriş kaydı oluştur
             await axios.post('http://localhost:3000/api/stock-movements', {
                 type: 'IN',
                 productId: productId,
                 quantity: 1,
-                description: '3D depo görünümünden eklendi',
-                locationId: selectedLocation
+                description: 'Depo yönetim modalından eklendi',
+                locationId: targetLocationId
             }, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -181,8 +181,8 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
             });
 
             toast.success('Ürün başarıyla eklendi');
+            if (onSuccess) onSuccess();
             onCancel();
-            window.location.reload();
         } catch (error) {
             console.error('Ürün ekleme hatası:', error);
             toast.error('Ürün eklenirken bir hata oluştu: ' + (error?.response?.data?.message || error.message));
@@ -194,64 +194,50 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
     const handleRemoveProduct = async () => {
         setLoading(true);
         try {
-            // Lokasyon bilgisini al
-            const locationId = locationStatus?.productData?.locationId || cellData?.locationData?.id;
-            const productId = locationStatus?.productData?.id || cellData?.locationData?.Product?.id;
+            // Lokasyon ve Ürün ID'lerini doğrudan cellData'dan alalım
+            const locationId = cellData?.id; // Hücrenin (lokasyonun) ID'si
+            // İlk paletin ürün ID'sini al (varsayım: çıkarılacak ürün ilk palet)
+            const productId = cellData?.pallets?.[0]?.product?.id; 
 
             if (!locationId || !productId) {
-                throw new Error("Lokasyon veya ürün bilgisi bulunamadı");
+                // Hata mesajını biraz daha açıklayıcı yapalım
+                console.error("Hata: locationId veya productId bulunamadı", { locationId, productId, cellData });
+                throw new Error("Lokasyon veya ürün bilgisi bulunamadı. Veri yapısını kontrol edin.");
             }
 
             console.log("Removing product:", { productId, locationId });
-
-            // Önce ürün verilerini al
-            const productResponse = await axios.get(`http://localhost:3000/api/products/${productId}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
-            if (!productResponse.data.success) {
-                throw new Error("Ürün bilgileri alınamadı");
-            }
-
-            const productData = productResponse.data.data;
 
             // Stok çıkış kaydı oluştur
             await axios.post('http://localhost:3000/api/stock-movements', {
                 type: 'OUT',
                 productId: productId,
-                quantity: 1,
-                description: '3D depo görünümünden çıkarıldı',
-                locationId: locationId
+                quantity: 1, // Şimdilik 1 adet varsayıyoruz
+                description: 'Depo yönetim modalından çıkarıldı', // Açıklama güncellendi
+                locationId: locationId // Stok hareketi için lokasyon ID'si
             }, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
 
-            // Ürünü güncelle - tüm mevcut bilgileri koruyarak locationId'yi null yap
-            await axios.put(`http://localhost:3000/api/products/${productId}`, {
-                name: productData.name,
-                sku: productData.sku,
-                description: productData.description || '',
-                quantity: productData.quantity,
-                price: productData.price || 0,
-                minStock: productData.minStockLevel || 0,
-                categoryId: productData.categoryId,
-                locationId: null,  // Sadece lokasyon bilgisini null yapıyoruz
-                company: productData.company || '',
-                weight: productData.weight || 0,
-                sizeCategory: productData.sizeCategory || ''
-            }, {
+            // Ürünü güncelle - Sadece locationId'yi null yap
+            // !! ÖNEMLİ NOT: Bu işlem, ürünün HERHANGİ BİR lokasyonda olup olmadığını kontrol etmeden
+            //              locationId'sini null yapıyor. Eğer ürün birden fazla lokasyonda
+            //              olabiliyorsa (şu anki yapıda pek mümkün görünmüyor ama), bu mantık
+            //              yanlış olabilir. API tarafında bu kontrolü yapmak daha doğru olur.
+            //              Şimdilik, mevcut yapıya göre devam ediyoruz.
+            await axios.put(`http://localhost:3000/api/products/${productId}`, 
+                { locationId: null }, 
+                {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 }
-            });
+            );
 
             toast.success('Ürün başarıyla kaldırıldı');
+            if (onSuccess) onSuccess();
             onCancel();
-            window.location.reload();
         } catch (error) {
             console.error('Ürün kaldırma hatası:', error);
             toast.error('Ürün kaldırılırken bir hata oluştu: ' + (error?.response?.data?.message || error.message));
@@ -412,8 +398,15 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                             title={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span>Konum: {selectedLocation}</span>
-                                    <Tag color={locationStatus?.isOccupied ? 'blue' : 'green'}>
-                                        {locationStatus?.isOccupied ? 'Dolu' : 'Boş'}
+                                    <Tag color={
+                                        locationStatus?.usedCapacity === 0 ? 'green' : 
+                                        locationStatus?.usedCapacity === locationStatus?.totalCapacity ? 'red' : 'blue'
+                                    }>
+                                        {
+                                            locationStatus?.usedCapacity === 0 ? 'Boş' : 
+                                            locationStatus?.usedCapacity === locationStatus?.totalCapacity ? `Dolu (${locationStatus?.usedCapacity}/${locationStatus?.totalCapacity})` :
+                                            `Yarı Dolu (${locationStatus?.usedCapacity}/${locationStatus?.totalCapacity})`
+                                        }
                                     </Tag>
                                 </div>
                             }
@@ -430,19 +423,41 @@ const WarehouseProductModal = ({ visible, onCancel, cellData }) => {
                                     <Descriptions.Item label="SKU">{locationStatus.productData.sku || 'N/A'}</Descriptions.Item>
                                     <Descriptions.Item label="Kategori">{locationStatus.productData?.Category?.name || 'N/A'}</Descriptions.Item>
                                     <Descriptions.Item label="Miktar">{locationStatus.productData.quantity}</Descriptions.Item>
-                                    <Descriptions.Item label="Ağırlık">{locationStatus.productData.weight} kg</Descriptions.Item>
                                     
-                                    {getSizeCategory(locationStatus.productData) && (
-                                        <Descriptions.Item label="Boyut Kategorisi">
-                                            <Tag color={getSizeCategory(locationStatus.productData).color}>
-                                                {getSizeCategory(locationStatus.productData).category} 
-                                                ({(getSizeCategory(locationStatus.productData).volume/1000).toFixed(3)} L)
-                                            </Tag>
+                                    <Descriptions.Item label="Ağırlık">
+                                        {
+                                            (() => {
+                                                const kg = parseFloat(locationStatus.productData.weight) || 0;
+                                                const category = locationStatus.productData.weightCategory || 'Hafif';
+                                                let color = 'green';
+                                                if (category === 'Ağır') color = 'red';
+                                                else if (category === 'Normal') color = 'orange';
+                                                return (
+                                                    <Space>
+                                                        <Tag color={color}>{category}</Tag>
+                                                        <span>({kg.toFixed(1)} kg)</span>
+                                                    </Space>
+                                                );
+                                            })()
+                                        }
                                         </Descriptions.Item>
-                                    )}
                                     
-                                    <Descriptions.Item label="Boyutlar">
-                                        {locationStatus.productData.width} × {locationStatus.productData.height} × {locationStatus.productData.length} cm
+                                    <Descriptions.Item label="Palet Tipi">
+                                        {
+                                            (() => {
+                                                const palletType = locationStatus.productData.palletType;
+                                                let displayText = '-';
+                                                let color = 'default';
+                                                if (palletType === 'full') {
+                                                displayText = 'Tam Palet';
+                                                color = 'blue';
+                                                } else if (palletType === 'half') {
+                                                displayText = 'Yarım Palet';
+                                                color = 'geekblue';
+                                                }
+                                                return <Tag color={color}>{displayText}</Tag>;
+                                            })()
+                                        }
                                     </Descriptions.Item>
                                     
                                     <Descriptions.Item label="Açıklama" span={3}>

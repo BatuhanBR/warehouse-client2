@@ -6,6 +6,8 @@ import Modal from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import UnauthorizedAccess from '../components/UnauthorizedAccess';
 import { Spin } from 'antd';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Debug utils
 const logError = (error, context) => {
@@ -24,6 +26,9 @@ const logError = (error, context) => {
 const Expenses = () => {
   const { user, loading: authLoading } = useAuth();
   const userRole = user?.role;
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const [expenses, setExpenses] = useState([]);
   const [summaryData, setSummaryData] = useState({
@@ -40,10 +45,10 @@ const Expenses = () => {
   const [currentExpense, setCurrentExpense] = useState(null);
 
   const expenseTypes = [
-    { value: '', label: 'Tümü' },
-    { value: 'office', label: 'Ofis Giderleri' },
-    { value: 'utility', label: 'Faturalar' },
-    { value: 'salary', label: 'Maaşlar' }
+    { value: '', label: t('expenseTypeAll') },
+    { value: 'office', label: t('office') },
+    { value: 'utility', label: t('utility') },
+    { value: 'salary', label: t('salary') }
   ];
 
   const fetchExpenses = async () => {
@@ -83,7 +88,7 @@ const Expenses = () => {
       });
     } catch (error) {
       logError(error, 'fetchExpenses');
-      toast.error('Giderler yüklenirken bir hata oluştu');
+      toast.error(t('expenseLoadError'));
     }
   };
 
@@ -109,7 +114,7 @@ const Expenses = () => {
       link.remove();
     } catch (error) {
       logError(error, 'handleExportExcel');
-      toast.error('Excel dosyası oluşturulurken bir hata oluştu');
+      toast.error(t('excelExportError'));
     }
   };
 
@@ -126,7 +131,7 @@ const Expenses = () => {
       window.open(url);
     } catch (error) {
       logError(error, 'handlePrint');
-      toast.error('PDF dosyası oluşturulurken bir hata oluştu');
+      toast.error(t('pdfExportError'));
     }
   };
 
@@ -139,21 +144,21 @@ const Expenses = () => {
 
       if (currentExpense) {
         await axios.put(`http://localhost:3000/api/expenses/${currentExpense.id}`, formData, { headers });
-        toast.success('Gider başarıyla güncellendi');
+        toast.success(t('expenseUpdateSuccess'));
       } else {
         await axios.post('http://localhost:3000/api/expenses', formData, { headers });
-        toast.success('Gider başarıyla eklendi');
+        toast.success(t('expenseAddSuccess'));
       }
       setIsModalOpen(false);
       fetchExpenses();
     } catch (error) {
       logError(error, 'handleSubmit');
-      toast.error('İşlem sırasında bir hata oluştu');
+      toast.error(t('expenseOperationFailed'));
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Bu gideri silmek istediğinizden emin misiniz?')) {
+    if (window.confirm(t('expenseDeleteConfirm'))) {
       try {
         const token = localStorage.getItem('token');
         await axios.delete(`http://localhost:3000/api/expenses/${id}`, {
@@ -161,11 +166,11 @@ const Expenses = () => {
             Authorization: `Bearer ${token}`
           }
         });
-        toast.success('Gider başarıyla silindi');
+        toast.success(t('expenseDeleteSuccess'));
         fetchExpenses();
       } catch (error) {
         logError(error, 'handleDelete');
-        toast.error('Gider silinirken bir hata oluştu');
+        toast.error(t('expenseDeleteError'));
       }
     }
   };
@@ -179,13 +184,13 @@ const Expenses = () => {
   }
 
   if (userRole !== 'admin') {
-    return <UnauthorizedAccess message="Giderler sayfasını görüntüleme yetkiniz bulunmamaktadır."/>;
+    return <UnauthorizedAccess message={t('expenseUnauthorized')}/>;
   }
 
   return (
-    <div className="p-6">
+    <div className={`p-6 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Giderler</h1>
+        <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{t('expenses')}</h1>
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -195,51 +200,51 @@ const Expenses = () => {
             className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             <MdAdd className="mr-2" />
-            Yeni Gider
+            {t('newExpense')}
           </button>
           <button
             onClick={handleExportExcel}
             className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <MdFileDownload className="mr-2" />
-            Excel'e Aktar
+            {t('exportToExcel')}
           </button>
           <button
             onClick={handlePrint}
             className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <MdPrint className="mr-2" />
-            Yazdır
+            {t('print')}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 text-sm mb-2">Tüm Zamanlar Toplam Masraf</h3>
-          <p className="text-2xl font-bold text-gray-800">{summaryData.allTimeExpense?.toLocaleString('tr-TR') || 0} ₺</p>
+        <div className={`p-6 rounded-xl shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+          <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('allTimeTotalExpense')}</h3>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{summaryData.allTimeExpense?.toLocaleString('tr-TR') || 0} ₺</p>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 text-sm mb-2">Toplam Yıllık Masraf</h3>
-          <p className="text-2xl font-bold text-gray-800">{summaryData.yearlyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
+        <div className={`p-6 rounded-xl shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+          <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('totalYearlyExpense')}</h3>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{summaryData.yearlyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 text-sm mb-2">Aylık Masraf (1/12)</h3>
-          <p className="text-2xl font-bold text-gray-800">{summaryData.monthlyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
+        <div className={`p-6 rounded-xl shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+          <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('monthlyExpense')}</h3>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{summaryData.monthlyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-gray-500 text-sm mb-2">Haftalık Masraf (1/4 ay)</h3>
-          <p className="text-2xl font-bold text-gray-800">{summaryData.weeklyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
+        <div className={`p-6 rounded-xl shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+          <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('weeklyExpense')}</h3>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{summaryData.weeklyExpense?.toLocaleString('tr-TR') || 0} ₺</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-4 border-b border-gray-100">
+      <div className={`rounded-xl shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+        <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
           <div className="flex gap-4 items-center">
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
             >
               {expenseTypes.map(type => (
                 <option key={type.value} value={type.value}>{type.label}</option>
@@ -248,90 +253,82 @@ const Expenses = () => {
             <div className="flex gap-2">
               <input
                 type="date"
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={dateRange.startDate}
-                onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                className={`px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                placeholder={t('startDate')}
               />
               <input
                 type="date"
-                className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={dateRange.endDate}
-                onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                className={`px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                placeholder={t('endDate')}
               />
             </div>
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Açıklama veya kategori ile ara..."
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <p className="text-xs text-gray-500 mt-1">Hem açıklama hem de kategori içinde arar</p>
-            </div>
+            <input
+              type="text"
+              placeholder={t('searchByDescOrCategory')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`px-4 py-2 border rounded-lg flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+            />
           </div>
         </div>
 
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Başlangıç Tarihi</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bitiş Tarihi</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tutar</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Açıklama</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map(expense => (
-              <tr key={expense.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(expense.expenseStartTime).toLocaleDateString('tr-TR')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {new Date(expense.expenseEndTime).toLocaleDateString('tr-TR')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {expenseTypes.find(c => c.value === expense.expenseType)?.label || expense.expenseType}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {Number(expense.expenseAmount).toLocaleString('tr-TR')} ₺
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{expense.expenseDescription}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                  <button
-                    onClick={() => {
-                      setCurrentExpense(expense);
-                      setIsModalOpen(true);
-                    }}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    <MdEdit className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(expense.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <MdDelete className="w-5 h-5" />
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{t('date')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{t('description')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{t('expenseCategory')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{t('amount')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{t('expenseCategory')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">{t('actions')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className={`divide-y ${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
+              {expenses.map(expense => (
+                <tr key={expense.id} className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>{new Date(expense.expenseStartTime).toLocaleDateString()}</td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>{expense.expenseDescription}</td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isDark ? 'bg-opacity-50' : ''} 
+                      ${expense.expenseType === 'office' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 
+                      expense.expenseType === 'utility' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' : 
+                      expense.expenseType === 'salary' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                      {t(expenseTypes.find(t => t.value === expense.expenseType)?.label || expense.expenseType)}
+                    </span>
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>{Number(expense.expenseAmount).toLocaleString('tr-TR')} ₺</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                      onClick={() => { setCurrentExpense(expense); setIsModalOpen(true); }}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <MdEdit size={20} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(expense.id)} 
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <MdDelete size={20}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {expenses.length === 0 && (
+            <div className={`text-center py-10 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('noExpensesFound')}</div>
+          )}
+        </div>
       </div>
 
       {isModalOpen && (
-        <Modal
-          title={currentExpense ? 'Gider Düzenle' : 'Yeni Gider'}
-          onClose={() => setIsModalOpen(false)}
-        >
-          <ExpenseForm
-            expense={currentExpense}
-            onSubmit={handleSubmit}
-            expenseTypes={expenseTypes.filter(c => c.value !== '')}
-          />
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={currentExpense ? t('updateExpense') : t('addExpense')}>
+          <ExpenseForm expense={currentExpense} onSubmit={handleSubmit} expenseTypes={expenseTypes} />
         </Modal>
       )}
     </div>
@@ -358,9 +355,10 @@ const ExpenseForm = ({ expense, onSubmit, expenseTypes }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700">Başlangıç Tarihi</label>
+        <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{t('date')}</label>
         <input
           type="date"
+          name="date"
           value={formData.expenseStartTime}
           onChange={(e) => setFormData({ ...formData, expenseStartTime: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -368,32 +366,36 @@ const ExpenseForm = ({ expense, onSubmit, expenseTypes }) => {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Bitiş Tarihi</label>
+        <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{t('description')}</label>
         <input
-          type="date"
-          value={formData.expenseEndTime}
-          onChange={(e) => setFormData({ ...formData, expenseEndTime: e.target.value })}
+          type="text"
+          name="description"
+          value={formData.expenseDescription}
+          onChange={(e) => setFormData({ ...formData, expenseDescription: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           required
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Kategori</label>
+        <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{t('expenseCategory')}</label>
         <select
+          name="expenseType"
           value={formData.expenseType}
           onChange={(e) => setFormData({ ...formData, expenseType: e.target.value })}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           required
         >
-          {expenseTypes.map(type => (
+          <option value="">{t('selectCategory')}</option>
+          {expenseTypes.filter(t => t.value).map(type => (
             <option key={type.value} value={type.value}>{type.label}</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Tutar</label>
+        <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{t('amount')}</label>
         <input
           type="number"
+          name="amount"
           step="0.01"
           value={formData.expenseAmount}
           onChange={(e) => setFormData({ ...formData, expenseAmount: e.target.value })}
@@ -401,21 +403,12 @@ const ExpenseForm = ({ expense, onSubmit, expenseTypes }) => {
           required
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Açıklama</label>
-        <textarea
-          value={formData.expenseDescription}
-          onChange={(e) => setFormData({ ...formData, expenseDescription: e.target.value })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          rows="3"
-        />
-      </div>
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          {expense ? 'Güncelle' : 'Ekle'}
+      <div className="flex justify-end gap-2 mt-6">
+        <button type="button" onClick={onCancel} className={`px-4 py-2 rounded-lg ${isDark ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}>
+          {t('cancel')}
+        </button>
+        <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+          {expense ? t('updateExpense') : t('addExpense')}
         </button>
       </div>
     </form>

@@ -17,7 +17,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import productService from '../services/productService';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { Table, Tag, ConfigProvider, theme as antTheme } from 'antd';
+import { Table, Tag, ConfigProvider, theme as antTheme, Space } from 'antd';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -58,30 +58,30 @@ const Products = () => {
   // Tablo kolonları
   const columns = [
     {
-      title: 'Ürün Adı',
+      title: t('productName'),
       dataIndex: 'name',
       key: 'name',
       render: text => text || '-'
     },
     {
-      title: 'SKU',
+      title: t('sku'),
       dataIndex: 'sku',
       key: 'sku',
       render: text => text || '-'
     },
     {
-      title: 'Stok',
+      title: t('stock'),
       dataIndex: 'quantity',
       key: 'quantity',
       render: quantity => (quantity || quantity === 0) ? quantity.toString() : '-'
     },
     {
-      title: 'Kategori',
+      title: t('category'),
       key: 'category',
       render: (_, record) => record?.Category?.name || '-'
     },
     {
-      title: 'Fiyat',
+      title: t('price'),
       dataIndex: 'price',
       key: 'price',
       render: (price, record) => {
@@ -139,7 +139,7 @@ const Products = () => {
       }
     },
     {
-      title: 'Günlük Depolama',
+      title: t('dailyStorageRate'),
       dataIndex: 'dailyStorageRate',
       key: 'dailyStorageRate',
       render: (rate, record) => {
@@ -179,86 +179,69 @@ const Products = () => {
       }
     },
     {
-      title: 'Ağırlık',
+      title: t('weight'),
       dataIndex: 'weight',
       key: 'weight',
-      render: weight => `${weight} kg`
-    },
-    {
-      title: 'Boyutlar (cm)',
-      key: 'dimensions',
-      render: (_, record) => {
-        const width = Number(record.width || 0).toFixed(1);
-        const height = Number(record.height || 0).toFixed(1);
-        const length = Number(record.length || 0).toFixed(1);
-        
-        return (
-          <div style={{ whiteSpace: 'nowrap' }}>
-            <div>En: {width}</div>
-            <div>Boy: {height}</div>
-            <div>Derinlik: {length}</div>
-          </div>
-        );
-      }
-    },
-    {
-      title: 'Boyut Kategorisi',
-      dataIndex: 'sizeCategory',
-      key: 'sizeCategory',
-      render: (_, record) => {
-        // Hacim hesaplama (cm³)
-        const width = Number(record.width || 0);
-        const height = Number(record.height || 0);
-        const length = Number(record.length || 0);
-        const volume = width * height * length;
-        
-        // Boyut kategorisi belirleme
-        let category;
-        let color;
-        
-        if (volume <= 5000) { // 5.000 cm³ = 5 litre
-          category = 'Küçük';
-          color = 'success';
-        } else if (volume <= 50000) { // 50.000 cm³ = 50 litre
-          category = 'Normal';
-          color = 'processing';
-        } else {
-          category = 'Büyük';
-          color = 'warning';
+      render: (weight) => {
+        const kg = parseFloat(weight) || 0;
+        let category = t('weightLight');
+        let color = 'green'; // Hafif için yeşil
+        if (kg > 750) {
+            category = t('weightHeavy');
+            color = 'red'; // Ağır için kırmızı
+        } else if (kg >= 250) {
+            category = t('weightNormal');
+            color = 'orange'; // Normal için turuncu
         }
-
+        // return `${category} (${kg.toFixed(1)} kg)`; // Eski metin gösterimi
         return (
-          <Tag color={color}>
-            {category} ({(volume/1000).toFixed(3)} L)
-          </Tag>
+          <Space>
+            <Tag color={color}>{category}</Tag>
+            <span>({kg.toFixed(1)} kg)</span>
+          </Space>
         );
       },
-      sorter: (a, b) => {
-        const getVolume = (record) => {
-          const width = Number(record.width || 0);
-          const height = Number(record.height || 0);
-          const length = Number(record.length || 0);
-          return width * height * length;
-        };
-        return getVolume(a) - getVolume(b);
-      }
+      sorter: (a, b) => (parseFloat(a.weight) || 0) - (parseFloat(b.weight) || 0)
     },
     {
-      title: 'Lokasyon',
+      title: t('palletType'),
+      key: 'palletType',
+      render: (_, record) => {
+        const palletType = record.palletType;
+        let displayText = '-';
+        let color = 'default';
+        if (palletType === 'full') {
+          displayText = t('palletFull');
+          color = 'blue';
+        } else if (palletType === 'half') {
+          displayText = t('palletHalf');
+          color = 'orange';
+        }
+
+        return <Tag color={color}>{displayText}</Tag>;
+      },
+      filters: [
+        { text: t('palletFull'), value: 'full' },
+        { text: t('palletHalf'), value: 'half' },
+      ],
+      onFilter: (value, record) => record.palletType === value,
+    },
+    {
+      title: t('location'),
       key: 'location',
       render: (_, record) => {
-        if (!record?.Location) return 'Atanmamış';
-        return `Raf ${record.Location.rackNumber}, Kat ${record.Location.level}, Pozisyon ${record.Location.position}`;
+        if (!record?.Location) return t('unassigned');
+        return `${t('rackPrefix')} ${record.Location.rackNumber}, ${t('levelPrefix')} ${record.Location.level}, ${t('positionPrefix')} ${record.Location.position}`;
       }
     },
     {
-      title: 'Depolama Başlangıç',
+      title: t('storageStartDate'),
       dataIndex: 'storageStartDate',
       key: 'storageStartDate',
       render: date => date ? new Date(date).toLocaleDateString('tr-TR') : '-'
     },
     {
-      title: 'Planlanan Bitiş',
+      title: t('plannedEndDate'),
       key: 'expectedEndDate',
       render: (_, record) => {
         if (!record?.storageStartDate) return '-';
@@ -269,30 +252,46 @@ const Products = () => {
       }
     },
     {
-      title: 'Şirket',
-      key: 'company',
-      render: (_, record) => record?.company || '-'
+      title: t('status'),
+      key: 'status',
+      render: (_, record) => {
+        if (record.storageEndDate) {
+          return <Tag color="blue">{t('statusCompleted')}</Tag>;
+        } else if (record.storageStartDate) {
+          return <Tag color="green">{t('statusActive')}</Tag>;
+        }
+        return <Tag color="default">{t('statusUnknown')}</Tag>;
+      },
     },
     {
-      title: 'İşlemler',
+      title: t('actions'),
       key: 'actions',
       render: (_, record) => (
-        <div className="flex space-x-2">
+        <Space size="middle">
           <button 
+            className="text-blue-500 hover:text-blue-700"
             onClick={() => handleEditProduct(record)}
-            className="text-primary-600 hover:text-primary-900"
           >
-            <MdEdit className="w-5 h-5" />
+            <MdEdit size={20} />
           </button>
           <button 
+            className="text-red-500 hover:text-red-700"
             onClick={() => handleDeleteProduct(record)}
-            className="text-red-600 hover:text-red-900"
           >
-            <MdDelete className="w-5 h-5" />
+            <MdDelete size={20} />
           </button>
-        </div>
-      )
-    }
+          {record.locationId && (
+            <button 
+              className="text-orange-500 hover:text-orange-700"
+              onClick={() => handleRemoveFromLocation(record)}
+              title={t('removeFromLocation')}
+            >
+              <MdLayersClear size={20} />
+            </button>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   // Ürünleri getir
@@ -323,7 +322,8 @@ const Products = () => {
             weight: parseFloat(product?.weight) || 0,
             price: parseFloat(product?.price) || 0,
             dailyStorageRate: parseFloat(product?.dailyStorageRate) || 0,
-            company: product?.company || ''
+            company: product?.company || '',
+            palletType: product?.palletType || 'full'
           };
         });
         
@@ -359,13 +359,24 @@ const Products = () => {
     setShowModal(true);
   };
 
-  const handleModalSubmit = async (values) => {
+  const handleModalSubmit = async (arg1, arg2) => {
     try {
       if (modalMode === 'edit' && selectedProduct) {
-        // Düzenleme işlemi
+        // Düzenleme modunda arg1=productId, arg2=updatedValues olmalı
+        const productId = arg1; // İlk argüman ID
+        const updatedValues = arg2; // İkinci argüman güncel veriler
+
+        if (!productId || !updatedValues) {
+            console.error("Edit mode submit error: productId or updatedValues missing", { productId, updatedValues });
+            toast.error("Güncelleme verileri eksik.");
+            return;
+        }
+
+        console.log(`Updating product ${productId} with values:`, updatedValues); // Loglama
+
         const response = await axios.put(
-          `http://localhost:3000/api/products/${selectedProduct.id}`,
-          values,
+          `http://localhost:3000/api/products/${productId}`, // URL için productId'yi kullan
+          updatedValues, // Body için updatedValues'u kullan
           {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -377,12 +388,25 @@ const Products = () => {
           toast.success('Ürün başarıyla güncellendi');
           fetchProducts();
           setShowModal(false);
-        }
       } else {
-        // Yeni ürün ekleme işlemi
+             // API'den gelen hata mesajını göster
+             throw new Error(response.data.message || 'Ürün güncellenirken bir sunucu hatası oluştu');
+        }
+      } else { // Ekleme modu
+        // Ekleme modunda arg1=newValues olmalı, arg2 tanımsız
+        const newValues = arg1;
+        
+        if (!newValues) {
+            console.error("Add mode submit error: newValues missing", { newValues });
+            toast.error("Eklenecek ürün verileri eksik.");
+            return;
+        }
+
+        console.log(`Adding new product with values:`, newValues); // Loglama
+
         const response = await axios.post(
           'http://localhost:3000/api/products',
-          values,
+          newValues, // Body için newValues'u kullan
           {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -400,7 +424,12 @@ const Products = () => {
       }
     } catch (error) {
       console.error('İşlem hatası:', error);
-      toast.error(error.response?.data?.message || (modalMode === 'edit' ? 'Ürün güncellenirken bir hata oluştu' : 'Ürün eklenirken bir hata oluştu'));
+      // Axios hatasıysa ve response varsa, API mesajını kullan
+      const apiErrorMessage = error.response?.data?.message;
+      // Genel hata mesajı
+      const defaultMessage = modalMode === 'edit' ? 'Ürün güncellenirken bir hata oluştu' : 'Ürün eklenirken bir hata oluştu';
+      // Toast mesajı
+      toast.error(apiErrorMessage || error.message || defaultMessage);
     }
   };
 
@@ -631,6 +660,40 @@ const Products = () => {
     }
   };
 
+  // Yeni fonksiyon: Ürünü lokasyondan çıkarma
+  const handleRemoveFromLocation = async (product) => {
+    if (!product || !product.id || !product.locationId) {
+      toast.error("Ürün veya lokasyon bilgisi eksik.");
+      return;
+    }
+
+    const toastId = toast.loading('Ürün lokasyondan çıkarılıyor...');
+    try {
+      // 1. Stok çıkış hareketi oluştur
+      await axios.post('http://localhost:3000/api/stock-movements', {
+        type: 'OUT',
+        productId: product.id,
+        quantity: 1, // Varsayılan olarak 1 adet çıkarılıyor, ürünün tüm miktarını çıkarmak gerekebilir mi? Şimdilik 1.
+        description: `Ürünler sayfasından çıkarıldı (Lokasyon ID: ${product.locationId})`,
+        locationId: product.locationId 
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      // 2. Ürünün lokasyonunu null yap
+      await productService.updateProduct(product.id, { locationId: null });
+
+      toast.success('Ürün başarıyla lokasyondan çıkarıldı.', { id: toastId });
+      fetchProducts(); // Tabloyu yenile
+
+    } catch (error) {
+      console.error("Lokasyondan çıkarma hatası:", error);
+      toast.error(`Hata: ${error?.response?.data?.message || error.message || 'Bilinmeyen bir hata oluştu.'}`, { id: toastId });
+    }
+  };
+
   // Ant Design tema konfigürasyonu
   const themeConfig = {
     algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
@@ -718,7 +781,7 @@ const Products = () => {
             <div className={`relative w-64 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
               <input
                 type="text"
-                placeholder="Ürün ara..."
+                placeholder={t('searchByNameOrSKU')}
                 value={filters.search}
                 onChange={(e) => setFilters({...filters, search: e.target.value})}
                 className={`border rounded-md py-2 px-3 pl-10 w-full outline-none focus:border-blue-400 transition-colors ${
@@ -736,7 +799,7 @@ const Products = () => {
                 isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
               }`}
             >
-              <option value="all">Tüm Kategoriler</option>
+              <option value="all">{t('allCategories')}</option>
               <option value="Elektronik">Elektronik</option>
               <option value="Gıda">Gıda</option>
               <option value="Kozmetik">Kozmetik</option>
@@ -757,10 +820,10 @@ const Products = () => {
                 isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
               }`}
             >
-              <option value="all">Tüm Stok Durumları</option>
-              <option value="inStock">Stokta Var</option>
-              <option value="lowStock">Düşük Stok</option>
-              <option value="outOfStock">Tükendi</option>
+              <option value="all">{t('allStockStatuses')}</option>
+              <option value="inStock">{t('inStock')}</option>
+              <option value="lowStock">{t('lowStock')}</option>
+              <option value="outOfStock">{t('outOfStock')}</option>
             </select>
             
             {/* Raf Filtresi */}
@@ -771,7 +834,7 @@ const Products = () => {
                 isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'
               }`}
             >
-              <option value="all">Tüm Raflar</option>
+              <option value="all">{t('allRacks')}</option>
               {Array.from(new Set(products.filter(p => p.Location).map(p => p.Location.code))).map(code => (
                 <option key={code} value={code}>{code}</option>
               ))}
@@ -804,116 +867,6 @@ const Products = () => {
               </p>
             </div>
           )}
-
-          {/* Sayfalama */}
-          <div className={`px-4 py-3 border-t ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} sm:px-6`}>
-            <div className="flex items-center justify-between">
-              <div className={`flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                <span className="text-sm mr-4">
-                  Sayfa başına göster
-                </span>
-                <select
-                  value={pagination.itemsPerPage}
-                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                  className={`border rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
-                    isDark ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300 text-gray-700'
-                  }`}
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-                <span className="text-sm ml-4">
-                  Toplam <span className="font-medium">{filteredProducts.length}</span> üründen{' '}
-                  <span className="font-medium">
-                    {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-
-                    {Math.min(pagination.currentPage * pagination.itemsPerPage, filteredProducts.length)}
-                  </span>{' '}
-                  arası gösteriliyor
-                </span>
-              </div>
-
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  {/* İlk Sayfa */}
-                  <button
-                    onClick={() => handlePageChange(1)}
-                    disabled={pagination.currentPage === 1}
-                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border text-sm font-medium ${
-                      isDark 
-                        ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500'
-                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400'
-                    }`}
-                  >
-                    İlk
-                  </button>
-
-                  {/* Sayfa Numaraları */}
-                  {[...Array(pagination.totalPages)].map((_, index) => {
-                    const pageNumber = index + 1;
-                    const isCurrentPage = pageNumber === pagination.currentPage;
-
-                    // Sadece mevcut sayfanın etrafındaki 2 sayfayı göster
-                    if (
-                      pageNumber === 1 ||
-                      pageNumber === pagination.totalPages ||
-                      Math.abs(pageNumber - pagination.currentPage) <= 1
-                    ) {
-                      return (
-                        <button
-                          key={pageNumber}
-                          onClick={() => handlePageChange(pageNumber)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
-                            ${isCurrentPage 
-                              ? isDark
-                                ? 'z-10 bg-blue-900 border-blue-800 text-blue-300'
-                                : 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                              : isDark
-                                ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    }
-
-                    // Sayfa atlaması için üç nokta
-                    if (Math.abs(pageNumber - pagination.currentPage) === 2) {
-                      return (
-                        <span
-                          key={pageNumber}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            isDark 
-                              ? 'bg-gray-700 border-gray-600 text-gray-400'
-                              : 'border-gray-300 bg-white text-gray-700'
-                          }`}
-                        >
-                          ...
-                        </span>
-                      );
-                    }
-
-                    return null;
-                  })}
-
-                  {/* Son Sayfa */}
-                  <button
-                    onClick={() => handlePageChange(pagination.totalPages)}
-                    disabled={pagination.currentPage === pagination.totalPages}
-                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border text-sm font-medium ${
-                      isDark 
-                        ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500'
-                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400'
-                    }`}
-                  >
-                    Son
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Silme Onay Modalı */}
@@ -924,7 +877,8 @@ const Products = () => {
           itemName={deleteModal.productName}
         />
 
-        {/* Ürün Modalı */}
+        {/* Ürün Ekleme/Düzenleme Modalı */}
+        {showModal && (
         <ProductModal
           visible={showModal}
           onCancel={handleModalCancel}
@@ -932,6 +886,7 @@ const Products = () => {
           initialData={selectedProduct}
           mode={modalMode}
         />
+        )}
       </div>
     </ConfigProvider>
   );

@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext'; // Tema context'ini import et
+import { useLanguage } from '../contexts/LanguageContext'; // Dil context'ini import et
 
 // Leaflet varsayılan ikon sorunu için çözüm
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,6 +19,9 @@ L.Icon.Default.mergeOptions({
 const Contact = () => {
   // Deponun konumu (örnek koordinatlar - kendi koordinatlarınızla değiştirin)
   const position = [38.45485378921997, 27.202245681708373]; // İzmir koordinatları
+  const { theme } = useTheme(); // Temayı al
+  const isDark = theme === 'dark';
+  const { t } = useLanguage(); // t fonksiyonunu al
 
   // Form state'leri
   const [formData, setFormData] = useState({
@@ -44,64 +49,64 @@ const Contact = () => {
       const response = await axios.post('http://localhost:3000/api/contact/send', formData);
       
       if (response.data.success) {
-        toast.success('Mesajınız başarıyla gönderildi!');
+        toast.success(t('messageSentSuccess'));
         setFormData({ name: '', email: '', message: '' }); // Formu temizle
       } else {
-        toast.error(response.data.message || 'Mesaj gönderilemedi.');
+        toast.error(response.data.message || t('messageSentError'));
       }
     } catch (error) {
       console.error("Mesaj gönderme hatası:", error);
-      toast.error('Mesaj gönderilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      toast.error(t('messageSentErrorGeneral'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">İletişim</h1>
+    <div className={`max-w-6xl mx-auto py-8 px-4 ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+      <h1 className={`text-3xl font-bold mb-8 text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>{t('contact')}</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* İletişim Bilgileri */}
+        {/* İletişim Bilgileri Kartı - Tema class'ları eklendi */}
         <div className="space-y-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-6">Bize Ulaşın</h2>
+          <div className={`rounded-xl p-6 shadow-lg ${isDark ? 'bg-gray-800/80 backdrop-blur-sm' : 'bg-white/80 backdrop-blur-sm'}`}>
+            <h2 className={`text-xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>{t('contactUsTitle')}</h2>
             
             <div className="space-y-4">
               <div className="flex items-center">
-                <MdEmail className="w-6 h-6 text-primary-600 mr-3" />
+                <MdEmail className={`w-6 h-6 mr-3 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                 <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="text-gray-700">batuhanbarakali@gmail.com</p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('email')}</p>
+                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>batuhanbarakali@gmail.com</p>
                 </div>
               </div>
               
               <div className="flex items-center">
-                <MdPhone className="w-6 h-6 text-primary-600 mr-3" />
+                <MdPhone className={`w-6 h-6 mr-3 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                 <div>
-                  <p className="text-sm text-gray-500">Telefon</p>
-                  <p className="text-gray-700">+90 (532) 653 63 27 </p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('phone')}</p>
+                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>+90 (532) 653 63 27 </p>
                 </div>
               </div>
               
               <div className="flex items-center">
-                <MdLocationOn className="w-6 h-6 text-primary-600 mr-3" />
+                <MdLocationOn className={`w-6 h-6 mr-3 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                 <div>
-                  <p className="text-sm text-gray-500">Adres</p>
-                  <p className="text-gray-700">Kazımdirik Mahallesi, Selçuk Yaşar Kampüsü, Üniversite Caddesi Ağaçlı Yol No: 37-39, 35100 Bornova/İzmir</p>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('address')}</p>
+                  <p className={`${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Kazımdirik Mahallesi, Selçuk Yaşar Kampüsü, Üniversite Caddesi Ağaçlı Yol No: 37-39, 35100 Bornova/İzmir</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* İletişim Formu */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-6">Mesaj Gönderin</h2>
+          {/* İletişim Formu Kartı - Tema class'ları eklendi */}
+          <div className={`rounded-xl p-6 shadow-lg ${isDark ? 'bg-gray-800/80 backdrop-blur-sm' : 'bg-white/80 backdrop-blur-sm'}`}>
+            <h2 className={`text-xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>{t('sendMessageTitle')}</h2>
             
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Adınız
+                <label htmlFor="name" className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {t('yourName')}
                 </label>
                 <input
                   type="text"
@@ -110,14 +115,14 @@ const Contact = () => {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Adınız Soyadınız"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'border-gray-300'}`}
+                  placeholder={t('yourNamePlaceholder')}
                 />
               </div>
               
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                <label htmlFor="email" className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {t('email')}
                 </label>
                 <input
                   type="email"
@@ -126,14 +131,14 @@ const Contact = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="ornek@email.com"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'border-gray-300'}`}
+                  placeholder={t('emailPlaceholder')}
                 />
               </div>
               
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-                  Mesajınız
+                <label htmlFor="message" className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {t('yourMessage')}
                 </label>
                 <textarea
                   id="message"
@@ -142,27 +147,27 @@ const Contact = () => {
                   value={formData.message}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Mesajınızı buraya yazın..."
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'border-gray-300'}`}
+                  placeholder={t('yourMessagePlaceholder')}
                 ></textarea>
               </div>
               
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-500 transition-colors ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition-colors ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isSubmitting ? 'Gönderiliyor...' : 'Gönder'}
+                {isSubmitting ? t('sending') : t('send')}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Harita */}
+        {/* Harita ve Destek Kartları - Tema class'ları eklendi */}
         <div className="space-y-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg h-[600px]">
-            <h2 className="text-xl font-semibold mb-6">Konum</h2>
-            <div className="h-[500px] rounded-lg overflow-hidden">
+          <div className={`rounded-xl p-6 shadow-lg h-[600px] ${isDark ? 'bg-gray-800/80 backdrop-blur-sm' : 'bg-white/80 backdrop-blur-sm'}`}>
+            <h2 className={`text-xl font-semibold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>{t('locationMapTitle')}</h2>
+            <div className={`h-[500px] rounded-lg overflow-hidden ${isDark ? 'leaflet-container-dark' : ''}`}>
               <MapContainer 
                 center={position} 
                 zoom={13} 
@@ -174,8 +179,8 @@ const Contact = () => {
                 />
                 <Marker position={position}>
                   <Popup>
-                    Depo Yönetim Sistemi <br />
-                    Kazımdirik Mahallesi, Selçuk Yaşar Kampüsü, Üniversite Caddesi Ağaçlı Yol No: 37-39, 35100 Bornova/İzmir
+                    {t('mapPopupTextLine1')} <br />
+                    {t('mapPopupTextLine2')}
                   </Popup>
                 </Marker>
               </MapContainer>
@@ -183,12 +188,12 @@ const Contact = () => {
           </div>
 
           {/* Destek Kartı */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+          <div className={`rounded-xl p-6 shadow-lg ${isDark ? 'bg-gray-800/80 backdrop-blur-sm' : 'bg-white/80 backdrop-blur-sm'}`}>
             <div className="flex items-center justify-center space-x-4">
-              <MdSupport className="w-8 h-8 text-primary-600" />
+              <MdSupport className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
               <div>
-                <h3 className="text-lg font-semibold">7/24 Destek</h3>
-                <p className="text-gray-600">Teknik destek ekibimiz size yardımcı olmak için hazır</p>
+                <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{t('supportTitle')}</h3>
+                <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t('supportDescription')}</p>
               </div>
             </div>
           </div>

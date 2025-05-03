@@ -1,15 +1,31 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import './index.css';
-import App from './App.jsx';
+import App from './App';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
+import { BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import './i18n';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
+  <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <React.Suspense fallback={<div>Yükleniyor...</div>}>
+              <App />
+            </React.Suspense>
+            <Toaster position="top-right" />
+          </LanguageProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
+  </React.StrictMode>
 );
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

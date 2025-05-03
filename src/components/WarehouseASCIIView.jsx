@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import shelfService from '../services/shelfService';
 import { useTheme } from '../contexts/ThemeContext';
 import { ReloadOutlined } from '@ant-design/icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { defaultAlgorithm, darkAlgorithm } = antTheme;
 const { Option } = Select;
@@ -12,6 +13,7 @@ const { Option } = Select;
 const WarehouseASCIIView = () => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const { t } = useLanguage();
     const [loading, setLoading] = useState(false);
     const [selectedRack, setSelectedRack] = useState(null);
     const [rackLocations, setRackLocations] = useState([]);
@@ -59,11 +61,11 @@ const WarehouseASCIIView = () => {
                 setRackLocations(response.data.data || []);
                 setSelectedRack(rackNumber);
             } else {
-                throw new Error('Geçersiz yanıt formatı');
+                throw new Error(t('invalidResponseFormat'));
             }
         } catch (error) {
             console.error('Raf bilgileri yüklenirken hata:', error);
-            toast.error('Raf bilgileri yüklenemedi');
+            toast.error(t('rackLoadError'));
             setRackLocations([]);
             setSelectedRack(null);
         } finally {
@@ -85,7 +87,7 @@ const WarehouseASCIIView = () => {
             console.log('Kaldırılacak ürün locationId:', locationId);
             
             if (!locationId) {
-                toast.error('Ürün ID bulunamadı!');
+                toast.error(t('productIdNotFound'));
                 return;
             }
 
@@ -93,17 +95,17 @@ const WarehouseASCIIView = () => {
             console.log('Ürün kaldırma yanıtı:', response);
             
             if (response.success) {
-                toast.success('Ürün başarıyla kaldırıldı');
+                toast.success(t('productRemovedSuccess'));
                 // Mevcut rafı yeniden yükle
                 await handleRackSelect(selectedRack);
                 setIsProductModalVisible(false);
                 setSelectedProduct(null);
             } else {
-                toast.error(response.message || 'Ürün kaldırılırken bir hata oluştu');
+                toast.error(response.message || t('productRemoveError'));
             }
         } catch (error) {
             console.error('Ürün kaldırma hatası:', error);
-            toast.error('Ürün kaldırılırken bir hata oluştu');
+            toast.error(t('productRemoveError'));
         } finally {
             setLoading(false);
         }
@@ -118,24 +120,24 @@ const WarehouseASCIIView = () => {
             });
             setIsProductModalVisible(true);
         } else {
-            toast.info('Bu hücre boş');
+            toast.info(t('cellIsEmpty'));
         }
     };
 
     // ASCII raf görünümünü oluştur
     const renderASCIIShelf = () => {
         if (!selectedRack || rackLocations.length === 0) {
-            return <div className={`text-center mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Lütfen bir raf seçin</div>;
+            return <div className={`text-center mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('pleaseSelectRack')}</div>;
         }
 
         const levels = [...new Set(rackLocations.map(loc => loc.level))].sort((a, b) => a - b);
         const positions = [...new Set(rackLocations.map(loc => loc.position))].sort((a, b) => a - b);
 
-        const cellInnerWidth = 5; // Hücre içeriği için genişlik (örn: ' █ 1 ') 
+        const cellInnerWidth = 2; // Yeni hücre içeriği genişliği (██, P ,  , ??)
         const cellPadding = 1; // Hücre kenarları ile içerik arası boşluk
-        const cellWidth = cellInnerWidth + (cellPadding * 2); // Tam hücre genişliği (örn: |  █ 1  |)
+        const cellWidth = cellInnerWidth + (cellPadding * 2); // Tam hücre genişliği ( | ██ | veya | P  | )
         const interCellSpace = 1; // Hücreler arası boşluk
-        const width = positions.length * (cellWidth + interCellSpace) - interCellSpace + 2; // Toplam genişlik (baş ve sondaki | dahil)
+        const width = positions.length * (cellWidth + interCellSpace) - interCellSpace + 2; // Toplam genişlik
         const asciiRows = [];
 
         // Raf başlığı
@@ -148,13 +150,6 @@ const WarehouseASCIIView = () => {
 
         // Seviyeler (Yukarıdan aşağıya)
         levels.reverse().forEach((level, levelIndex) => {
-            // Seviye başlığı
-            const levelTitle = `Seviye ${level}`;
-            const levelTitlePadding = Math.floor((width - levelTitle.length - 2) / 2);
-            const levelTitlePaddingRight = width - levelTitle.length - 2 - levelTitlePadding;
-            //asciiRows.push(`│${' '.repeat(levelTitlePadding)}${levelTitle}${' '.repeat(levelTitlePaddingRight)}│`);
-            //asciiRows.push(`├${'─'.repeat(width - 2)}┤`); // Seviye başlığı altına çizgi isteğe bağlı
-
             // Hücre satırı
             let cellsRow = '│';
             positions.forEach((position, index) => {
@@ -163,26 +158,25 @@ const WarehouseASCIIView = () => {
                 );
 
                 let cellContentDisplay = '';
+                // Palet sayısını pallets dizisinin uzunluğundan al
+                const palletCount = location?.pallets?.length ?? 0;
+
                 if (location) {
-                    if (location.isOccupied && location.Product) {
-                        // Dolu hücre: Blok + Pozisyon No
-                        cellContentDisplay = `█ ${position}`;
+                    if (palletCount === 2) {
+                        cellContentDisplay = '██'; // Tam dolu (2 palet)
+                    } else if (palletCount === 1) {
+                        cellContentDisplay = ' P'; // Tek palet (Sağa yaslı P)
                     } else {
-                        // Boş hücre: Boşluk + Pozisyon No
-                        cellContentDisplay = `  ${position}`; // Boşluk bırakarak hizalama
+                        cellContentDisplay = '  '; // Boş (0 palet)
                     }
                 } else {
-                    // Tanımsız hücre: ? + Pozisyon No
-                    cellContentDisplay = `? ${position}`;
+                    cellContentDisplay = '??'; // Tanımsız lokasyon
                 }
 
-                // Hücre içeriğini sabit genişliğe getir
-                const contentPadding = Math.max(0, cellInnerWidth - cellContentDisplay.length);
-                const contentLeftPad = Math.floor(contentPadding / 2);
-                const contentRightPad = contentPadding - contentLeftPad;
-                const finalCellContent = ' '.repeat(contentLeftPad) + cellContentDisplay + ' '.repeat(contentRightPad);
+                // Hücre içeriğini sabit genişliğe getir (zaten 2 karakter olmalı)
+                const finalCellContent = cellContentDisplay.padEnd(cellInnerWidth, ' '); // Sağını boşlukla doldur
 
-                // Hücreyi satıra ekle (kenar boşlukları ve ayırıcı ile)
+                // Hücreyi satıra ekle
                 cellsRow += ' '.repeat(cellPadding) + finalCellContent + ' '.repeat(cellPadding);
                 if (index < positions.length - 1) {
                     cellsRow += '│'; // Hücre ayırıcı
@@ -192,15 +186,15 @@ const WarehouseASCIIView = () => {
             });
             asciiRows.push(cellsRow);
 
-            // Seviyeler arası çizgi (Son seviye hariç)
+            // Seviyeler arası çizgi
             if (levelIndex < levels.length - 1) {
                 let separatorRow = '├';
                  positions.forEach((_, index) => {
                     separatorRow += '─'.repeat(cellWidth);
                     if (index < positions.length - 1) {
-                         separatorRow += '┼'; // İç ayırıcı
+                         separatorRow += '┼';
                     } else {
-                         separatorRow += '┤'; // Satır sonu ayırıcı
+                         separatorRow += '┤';
                     }
                  });
                 asciiRows.push(separatorRow);
@@ -211,14 +205,14 @@ const WarehouseASCIIView = () => {
         asciiRows.push(`└${'─'.repeat(width - 2)}┘\n`);
 
         // Açıklama
-        asciiRows.push('Açıklama: █ = Dolu, [Boşluk] = Boş, ? = Tanımsız');
+        asciiRows.push(t('asciiLegend'));
 
         return (
             <div className="ascii-shelf flex justify-center my-4">
                 <pre style={{
-                    fontFamily: 'monospace', // Sabit genişlikli font önemli
-                    lineHeight: '1.4',      // Satır aralığını biraz artırdım
-                    textAlign: 'center',    // Ortalamak için 'center' yapıldı
+                    fontFamily: 'monospace',
+                    lineHeight: '1.4',
+                    textAlign: 'center',
                     display: 'inline-block',
                     cursor: 'default'
                 }} className={`p-4 rounded shadow-md overflow-auto ${isDark ? 'bg-gray-800 text-gray-200 border border-gray-700' : 'bg-gray-50 text-gray-700 border border-gray-200'}`}>
@@ -246,14 +240,14 @@ const WarehouseASCIIView = () => {
 
         const columns = [
             {
-                title: 'Kod',
+                title: t('code'),
                 dataIndex: 'code',
                 key: 'code',
                 render: (text) => <span className="font-semibold">{text}</span>,
                 sorter: (a, b) => a.code.localeCompare(b.code),
             },
             {
-                title: 'Seviye',
+                title: t('level'),
                 dataIndex: 'level',
                 key: 'level',
                 align: 'center',
@@ -266,7 +260,7 @@ const WarehouseASCIIView = () => {
                 defaultSortOrder: 'ascend',
             },
             {
-                title: 'Pozisyon',
+                title: t('position'),
                 dataIndex: 'position',
                 key: 'position',
                 align: 'center',
@@ -278,108 +272,55 @@ const WarehouseASCIIView = () => {
                 sorter: (a, b) => a.position - b.position,
             },
             {
-                title: 'Durum',
-                key: 'status',
-                align: 'center',
-                render: (_, record) => (
-                    <span className={`px-3 py-1 rounded-full font-medium ${
-                        record.isOccupied 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-600'
-                    }`}>
-                        {record.isOccupied ? 'Dolu' : 'Boş'}
-                    </span>
-                ),
-                sorter: (a, b) => {
-                    // Dolu hücreler önce
-                    return (b.isOccupied ? 1 : 0) - (a.isOccupied ? 1 : 0);
-                },
-                filters: [
-                    { text: 'Dolu', value: true },
-                    { text: 'Boş', value: false },
-                ],
-                onFilter: (value, record) => record.isOccupied === value,
-            },
-            {
-                title: 'Ürün',
-                key: 'product',
-                render: (_, record) => (
-                    <span>
-                        {record.isOccupied && record.Product ? (
-                            <Button 
-                                type="link" 
-                                className="text-blue-600 hover:text-blue-800 flex items-center"
-                                onClick={() => handleCellClick(record)}
-                                icon={<span className="mr-1">📦</span>}
-                            >
-                                {record.Product.name}
-                            </Button>
-                        ) : (
-                            <span className="text-gray-400">-</span>
-                        )}
-                    </span>
-                ),
-                sorter: (a, b) => {
-                    // Ürün yoksa en sona
-                    if (!a.Product && !b.Product) return 0;
-                    if (!a.Product) return 1;
-                    if (!b.Product) return -1;
-                    return a.Product.name.localeCompare(b.Product.name);
-                },
-            },
-            {
-                title: 'Kapasite',
-                key: 'capacity',
-                align: 'center',
-                render: (_, record) => {
-                    // Ürünün kapladığı kapasiteyi hesapla
-                    let usedCapacity = 0;
-                    if (record.isOccupied && record.Product) {
-                        const sizeCategory = record.Product.sizeCategory;
-                        if (sizeCategory === 'Büyük') usedCapacity = 4;
-                        else if (sizeCategory === 'Normal') usedCapacity = 2;
-                        else usedCapacity = 1;
+                title: t('occupancy'),
+                dataIndex: 'isOccupied',
+                key: 'isOccupied',
+                render: (isOccupied, record) => {
+                    const palletCount = record.pallets?.length ?? 0;
+                    let text = t('empty');
+                    let color = 'green';
+                    if (palletCount === 2) {
+                        text = t('full');
+                        color = 'red';
+                    } else if (palletCount === 1) {
+                        text = t('halfFull');
+                        color = 'orange';
                     }
-                    
-                    const totalCapacity = 4;
-                    const availableCapacity = totalCapacity - usedCapacity;
-                    const usagePercentage = (usedCapacity / totalCapacity) * 100;
-                    
-                    // Kalan kapasite rengi
-                    let capacityColor = 'bg-green-500';
-                    if (usagePercentage >= 75) capacityColor = 'bg-red-500';
-                    else if (usagePercentage >= 50) capacityColor = 'bg-orange-500';
-                    else if (usagePercentage > 0) capacityColor = 'bg-blue-500';
-                    
-                    return (
-                        <div className="flex items-center justify-center">
-                            <span className="mr-2 text-gray-700 font-medium">
-                                {availableCapacity}/{totalCapacity}
-                            </span>
-                            <div className="w-16 h-3 bg-gray-200 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full ${capacityColor}`} 
-                                    style={{ width: `${usagePercentage}%` }} 
-                                />
-                            </div>
-                        </div>
-                    );
+                    return <span style={{ color: color }}>{text}</span>;
                 },
-                sorter: (a, b) => {
-                    // Kullanılabilir kapasiteye göre sırala
-                    const getAvailableCapacity = (record) => {
-                        let usedCapacity = 0;
-                        if (record.isOccupied && record.Product) {
-                            const sizeCategory = record.Product.sizeCategory;
-                            if (sizeCategory === 'Büyük') usedCapacity = 4;
-                            else if (sizeCategory === 'Normal') usedCapacity = 2;
-                            else usedCapacity = 1;
-                        }
-                        return 4 - usedCapacity;
-                    };
-                    
-                    return getAvailableCapacity(a) - getAvailableCapacity(b);
-                },
+                sorter: (a, b) => (a.pallets?.length ?? 0) - (b.pallets?.length ?? 0),
+                filters: [
+                    { text: t('full'), value: 2 },
+                    { text: t('halfFull'), value: 1 },
+                    { text: t('empty'), value: 0 },
+                ],
+                onFilter: (value, record) => (record.pallets?.length ?? 0) === value,
+            },
+            {
+                title: t('product'),
+                dataIndex: 'Product',
+                key: 'product',
+                render: (product) => product ? (
+                    <div>
+                        <div>{product.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{t('sku')}: {product.sku}</div>
+                    </div>
+                ) : t('none'),
+            },
+            {
+                title: t('actions'),
+                key: 'actions',
+                render: (_, record) => (
+                    record.Product ? (
+                        <Button
+                            type="link"
+                            danger
+                            onClick={() => handleRemoveProduct(record.id)}
+                        >
+                            {t('removeProduct')}
+                        </Button>
+                    ) : null
+                )
             },
         ];
 
@@ -419,12 +360,7 @@ const WarehouseASCIIView = () => {
         
         return (
             <Modal
-                title={
-                    <div className="flex items-center text-xl">
-                        <span className="mr-2">📦</span>
-                        <span>Ürün Detayları</span>
-                    </div>
-                }
+                title={t('productDetails')}
                 open={isProductModalVisible}
                 onCancel={() => setIsProductModalVisible(false)}
                 width={600}
@@ -434,7 +370,7 @@ const WarehouseASCIIView = () => {
                         size="large"
                         onClick={() => setIsProductModalVisible(false)}
                     >
-                        Kapat
+                        {t('close')}
                     </Button>,
                     <Button 
                         key="remove" 
@@ -445,7 +381,7 @@ const WarehouseASCIIView = () => {
                         onClick={() => handleRemoveProduct(selectedProduct.locationId)}
                         icon={<span className="mr-1">🗑️</span>}
                     >
-                        Ürünü Kaldır
+                        {t('removeFromLocation')}
                     </Button>,
                 ]}
             >
@@ -474,7 +410,7 @@ const WarehouseASCIIView = () => {
                             {selectedProduct.price && (
                                 <p className="flex justify-between">
                                     <span className="text-gray-600">Fiyat:</span>
-                                    <span className="font-medium text-green-600">{selectedProduct.price} TL</span>
+                                    <span className="font-medium text-green-600">{selectedProduct.price.toFixed(2)} TL</span>
                                 </p>
                             )}
                         </div>
@@ -538,16 +474,15 @@ const WarehouseASCIIView = () => {
                     <div>
                         <label className={`block mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Raf Seçimi:</label>
                         <Select
-                            placeholder="Raf Seçin"
+                            placeholder={t('selectRack')}
                             style={{ width: 200 }}
                             onChange={handleRackSelect}
+                            value={selectedRack || 1}
                             loading={loading}
                             className={isDark ? 'dark-select' : ''}
                         >
-                            {[...Array(10)].map((_, index) => (
-                                <Select.Option key={index + 1} value={index + 1}>
-                                    Raf {index + 1}
-                                </Select.Option>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(rack => (
+                                <Select.Option key={rack} value={rack}>{t('rackLabel', { rackNumber: rack })}</Select.Option>
                             ))}
                         </Select>
                     </div>

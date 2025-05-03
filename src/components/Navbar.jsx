@@ -7,7 +7,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
-import { Popover, Dropdown, Avatar, Menu, Space } from 'antd';
+import { Popover, Dropdown, Avatar, Menu, Space, Button, Tooltip } from 'antd';
+import { WifiOutlined, CloudOutlined, SettingOutlined, LogoutOutlined, SunOutlined, MoonOutlined, GlobalOutlined } from '@ant-design/icons';
 
 // API URL'sini tanımla (AuthContext ve Profile ile aynı olmalı)
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
@@ -96,21 +97,21 @@ const Navbar = () => {
     : null;
 
   return (
-    <div className="h-24 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center justify-between px-4 md:px-6 lg:px-8 shadow-sm dark:bg-gradient-to-r dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
+    <div className="h-24 bg-gradient-to-r from-blue-500 to-blue-700 border-b border-blue-100 flex items-center justify-between px-4 md:px-6 lg:px-8 shadow-md dark:bg-gradient-to-r dark:from-gray-700 dark:to-gray-900 dark:border-gray-600">
       {/* Sol taraf - Logo veya başlık */}
       <div className="flex items-center">
-        <Link to="/welcome" className="text-xl font-bold text-blue-600 dark:text-blue-400">
+        <Link to="/welcome" className="text-xl font-bold text-white dark:text-blue-300">
           WADSS64
         </Link>
       </div>
       
-      {/* Sağ taraf - Butonlar ve Hava Durumu */}
-      <div className="flex items-center gap-2 md:gap-3">
+      {/* Sağ taraf - Butonlar, Dil, Tema, Kullanıcı */}
+      <div className="flex items-center gap-3 md:gap-4">
         {/* Hava Durumu Göstergesi (Popover ile) */}
         <Popover content={weatherDetailsContent} title="Hava Durumu Detayları" trigger="hover" placement="bottomLeft">
-          <div className="flex items-center mr-2 p-2 rounded-lg bg-white/30 dark:bg-black/20 shadow-sm cursor-pointer">
+          <div className="flex items-center mr-2 p-2 rounded-lg bg-white/20 dark:bg-black/20 shadow-sm cursor-pointer">
             {weatherLoading ? (
-              <MdCloud className="w-5 h-5 text-gray-500 animate-pulse" />
+              <MdCloud className="w-5 h-5 text-white/70 animate-pulse" />
             ) : weather ? (
               <>
                 <img 
@@ -118,70 +119,66 @@ const Navbar = () => {
                   alt={weather.weather[0].description}
                   className="w-6 h-6 mr-1"
                 />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-white dark:text-gray-200">
                   {Math.round(weather.main.temp)}°C
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 hidden sm:inline">
+                <span className="text-xs text-white/80 dark:text-gray-300 ml-2 hidden sm:inline">
                   {weather.name}
                 </span>
               </>
             ) : (
-              <MdCloud className="w-5 h-5 text-red-500" title="Hava durumu alınamadı" />
+              <MdCloud className="w-5 h-5 text-red-300" title="Hava durumu alınamadı" />
             )}
           </div>
         </Popover>
 
-        {/* Tema Değiştirme Butonu */}
-        <button
-          onClick={toggleTheme}
-          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-300 hover:scale-105 group"
-          aria-label={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-        >
-          {theme === 'dark' ? (
-            <MdLightMode className="w-5 h-5 md:mr-2 group-hover:text-yellow-500 transition-colors" />
-          ) : (
-            <MdDarkMode className="w-5 h-5 md:mr-2 group-hover:text-blue-500 transition-colors" />
-          )}
-          <span className="hidden md:inline">{theme === 'dark' ? 'AYDINLIK' : 'KARANLIK'}</span>
-        </button>
+        {/* Dil Değiştirme Butonları */}
+        <Tooltip title={language === 'tr' ? 'Switch to English' : 'Türkçe\'ye Geç'}>
+          <Button 
+            shape="circle"
+            icon={<GlobalOutlined />} 
+            onClick={() => changeLanguage(language === 'tr' ? 'en' : 'tr')} 
+            className={`${theme === 'dark' ? 'text-white bg-gray-700 hover:bg-gray-600 border-gray-600' : 'text-gray-600 bg-white hover:bg-gray-100 border-gray-300'}`}
+          />
+        </Tooltip>
 
-        {/* Dil Değiştirme Butonu */}
-        <button
-          onClick={handleLanguageChange}
-          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-300 hover:scale-105 group"
-          aria-label={language === 'tr' ? 'English' : 'Türkçe'}
-        >
-          <MdLanguage className="w-5 h-5 md:mr-2 group-hover:text-blue-500 transition-colors" />
-          <span className="hidden md:inline">{language === 'tr' ? 'ENGLISH' : 'TÜRKÇE'}</span>
-        </button>
+        {/* Tema Değiştirme Butonu */}
+        <Tooltip title={theme === 'dark' ? 'Açık Mod' : 'Karanlık Mod'}>
+          <Button 
+            shape="circle"
+            icon={theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+            onClick={toggleTheme}
+            className={`${theme === 'dark' ? 'text-yellow-300 bg-gray-700 hover:bg-gray-600 border-gray-600' : 'text-blue-500 bg-white hover:bg-gray-100 border-gray-300'}`}
+          />
+        </Tooltip>
 
         <Link
           to="/contact"
-          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-300 hover:scale-105 group"
+          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-white dark:text-gray-200 hover:bg-white/10 dark:hover:bg-white/5 rounded-lg transition-all duration-200 group"
         >
-          <MdEmail className="w-5 h-5 md:mr-2 group-hover:text-blue-500 transition-colors" />
+          <MdEmail className="w-5 h-5 md:mr-2 group-hover:text-blue-300 transition-colors" />
           <span className="hidden md:inline">{t('contact')}</span>
         </Link>
 
         <Link
           to="/about"
-          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-300 hover:scale-105 group"
+          className="flex items-center px-3 md:px-4 py-4 text-sm font-medium text-white dark:text-gray-200 hover:bg-white/10 dark:hover:bg-white/5 rounded-lg transition-all duration-200 group"
         >
-          <MdInfo className="w-5 h-5 md:mr-2 group-hover:text-blue-500 transition-colors" />
+          <MdInfo className="w-5 h-5 md:mr-2 group-hover:text-blue-300 transition-colors" />
           <span className="hidden md:inline">{t('about')}</span>
         </Link>
 
         {/* Profil Dropdown */}
         <Dropdown overlay={profileMenu} trigger={['click']} placement="bottomRight">
-          <a onClick={e => e.preventDefault()} className="flex items-center cursor-pointer p-2 rounded-md hover:bg-gray-100/50 dark:hover:bg-gray-700/50">
+          <a onClick={e => e.preventDefault()} className="flex items-center cursor-pointer p-2 rounded-md hover:bg-white/10 dark:hover:bg-white/5">
             <Space>
               <Avatar 
                 src={profilePictureFullUrl} 
                 icon={!profilePictureFullUrl ? <UserOutlined /> : null} 
                 size="small" 
-                className="border border-gray-300 dark:border-gray-600"
+                className="border border-white/50 dark:border-gray-500"
               /> 
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden md:inline">
+              <span className="text-sm font-medium text-white dark:text-gray-200 hidden md:inline">
                 {user?.username || 'Kullanıcı'}
               </span>
             </Space>

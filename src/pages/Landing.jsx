@@ -27,24 +27,30 @@ function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 via-white to-primary-50">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <div className="relative isolate">
-        {/* Dekoratif arka plan desenleri */}
-        <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
-          <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-primary-200 to-primary-400 opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"></div>
-        </div>
+      <div 
+        className="relative isolate pt-14 pb-24 sm:pb-32 lg:pb-40 flex items-center"
+        style={{
+            backgroundImage: 'url(/images/landing-page.jpg)',
+            backgroundSize: 'cover', 
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="absolute inset-0 bg-black bg-opacity-60 z-0"></div>
 
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-24">
-            <div className="text-center">
-              <h2 className="text-base font-semibold leading-7 text-primary-600 animate-fade-in">
+        <div className="mx-auto max-w-2xl text-center z-10 relative px-4">
+            <h2 className="text-base font-semibold leading-7 text-gray-200 animate-fade-in">
                 Daha Hızlı Çalışın
               </h2>
-              <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-fade-in-up">
+            <h1 
+              className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-6xl animate-fade-in-up"
+              style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)' }}
+            >
                 Modern Depo Yönetim Sistemi
               </h1>
-              <p className="mt-6 text-lg leading-8 text-gray-600 animate-fade-in">
+            <p className="mt-6 text-lg leading-8 text-gray-200 animate-fade-in">
                 Deponuzu akıllı, verimli ve etkili bir şekilde yönetin. Gerçek zamanlı takip, 
                 otomatik bildirimler ve detaylı raporlama özellikleriyle işinizi kolaylaştırın.
               </p>
@@ -57,40 +63,60 @@ function Landing() {
                 </Link>
                 <Link
                   to="/register"
-                  className="text-sm font-semibold leading-6 text-gray-900 hover:text-primary-600 transition-colors duration-300"
+                  className="rounded-md bg-white px-5 py-3 text-sm font-semibold text-primary-700 shadow-lg hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white transition-all duration-300 hover:scale-105"
                 >
-                  Hesap Oluştur <span aria-hidden="true">→</span>
+                  Hesap Oluştur
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Özellikler Grid */}
-          <div className="mx-auto mt-8 max-w-7xl px-6 lg:px-8">
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+      {/* Özellikler Bölümü (Yeniden Yapılandırıldı) */}
+      <div className="bg-gray-50 py-24 sm:py-32">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-x-16 gap-y-10">
+                  {/* Sol Taraf: Başlık, Açıklama ve **Özellik Kartları** */}
+                  <div className="lg:flex-1">
+                      <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl text-left">
+                          Neden Bizim Sistemimiz?
+                      </h2>
+                      <p className="mt-6 text-lg leading-8 text-gray-600 text-left">
+                          Depo operasyonlarınızı optimize etmek, verimliliği artırmak ve maliyetleri düşürmek için 
+                          gelişmiş özelliklerimizi keşfedin. Gerçek zamanlı verilerle daha akıllı kararlar alın.
+                      </p>
+
+                      {/* Özellik Kartlarını Buraya Taşı */}
+                      <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2">
               {features.map((feature, index) => (
                 <div 
                   key={index}
-                  className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+                              className="text-center group bg-white rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100"
                 >
-                  <div className="text-primary-600 mb-4 group-hover:scale-110 transition-transform duration-300">
-                    {feature.icon}
+                                  <div className="mb-4 flex items-center justify-center">
+                                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 ring-8 ring-primary-50 group-hover:ring-primary-100 transition-all duration-300">
+                                          {React.cloneElement(feature.icon, { className: "h-7 w-7 text-primary-600" })}
+                                      </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                  <h3 className="text-base font-semibold leading-7 text-gray-900">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-600">
+                                  <p className="mt-1 text-sm leading-6 text-gray-600">
                     {feature.description}
                   </p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Alt kısım dekoratif desen */}
-        <div className="absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]">
-          <div className="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-primary-300 to-primary-500 opacity-20 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem]"></div>
+                  {/* Sağ Taraf: Görsel (Aynı) */}
+                  <div className="lg:flex-1 flex justify-center lg:justify-end">
+                       <img 
+                           src="images/landing-page2.jpg" 
+                           alt="Sistemin Özellikleri"
+                           className="w-full max-w-md rounded-xl shadow-lg ring-1 ring-gray-400/10"
+                       />
+                  </div>
+        </div>
         </div>
       </div>
 

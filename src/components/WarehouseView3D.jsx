@@ -2,23 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import axios from 'axios';
-import WarehouseProductModal from './WarehouseProductModal';
+import WarehouseManagementModal from './WarehouseManagementModal';
 import { Button, Select, ConfigProvider, theme as antTheme } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { defaultAlgorithm, darkAlgorithm } = antTheme;
 
 const WarehouseView3D = () => {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
+    const { t } = useLanguage();
     
     const mountRef = useRef(null);
-    const [locations, setLocations] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedCell, setSelectedCell] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isMgmtModalOpen, setIsMgmtModalOpen] = useState(false);
     const [selectedRack, setSelectedRack] = useState(null);
     const [rackLocations, setRackLocations] = useState([]);
 
@@ -107,7 +107,7 @@ const WarehouseView3D = () => {
             }
         } catch (error) {
             console.error('Raf bilgileri yüklenirken hata:', error);
-            toast.error('Raf bilgileri yüklenemedi');
+            toast.error(t('rackLoadError'));
         }
     };
 
@@ -136,11 +136,12 @@ const WarehouseView3D = () => {
 
                 const cell = createCell(rackNumber, level, position, locationData);
                 
-                // Hücreyi konumlandır
+                // Hücreyi konumlandır (Y koordinatı ters çevrildi)
                 cell.position.set(
-                    -SHELF_DIMENSIONS.width/2 + (position-1) * (SHELF_DIMENSIONS.width/4) + SHELF_DIMENSIONS.width/8,
-                    (level - 1) * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2,
-                    0
+                    -SHELF_DIMENSIONS.width/2 + (position-1) * (SHELF_DIMENSIONS.width/4) + SHELF_DIMENSIONS.width/8, // X (Sol-Sağ) - Değişmedi
+                    // (level - 1) * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2, // Eski Y (Aşağıdan Yukarıya)
+                    (4 - level) * SHELF_DIMENSIONS.height + SHELF_DIMENSIONS.height/2, // Yeni Y (Yukarıdan Aşağıya)
+                    0 // Z (Derinlik) - Değişmedi
                 );
 
                 shelfGroup.add(cell);
@@ -162,96 +163,132 @@ const WarehouseView3D = () => {
         return shelfGroup;
     };
 
-    // Hücre oluşturma
+    // Hücre oluşturma (Palet tipine göre görselleştirme ile)
     const createCell = (rackNumber, level, position, locationData) => {
+        console.log(`[createCell] R${rackNumber}-${level}-${position} locationData:`, locationData);
+
         const cell = new THREE.Group();
+        const cellWidth = SHELF_DIMENSIONS.width / 4 - SHELF_DIMENSIONS.spacing;
+        const cellHeight = SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing;
+        const cellDepth = SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing;
+        const cellGeometry = new THREE.BoxGeometry(cellWidth, cellHeight, cellDepth);
+
+        // Hücre kapasite ve durumunu al (API'den gelen hesaplanmış değerler)
+        const usedCapacity = locationData?.usedCapacity ?? 0;
+        const totalCapacity = locationData?.totalCapacity ?? 2;
+        let frameMaterial = MATERIALS.emptyCell; // Varsayılan boş
         
-        // Hücre geometrisi
-        const cellGeometry = new THREE.BoxGeometry(
-            SHELF_DIMENSIONS.width/4 - SHELF_DIMENSIONS.spacing,
-            SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing,
-            SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing
-        );
-
-        // Hücre çerçevesi
-        const edges = new THREE.EdgesGeometry(cellGeometry);
-        const frame = new THREE.LineSegments(
-            edges,
-            locationData?.isOccupied ? MATERIALS.occupiedCell : MATERIALS.emptyCell
-        );
-        cell.add(frame);
-
-        // Eğer ürün varsa, ürün kutusunu ekle
-        if (locationData?.isOccupied && locationData?.Product) {
-            const product = createProduct(locationData.Product);
-            if (product) {
-                cell.add(product);
-            }
+        if (usedCapacity === 1) { // Yarım dolu
+            frameMaterial = MATERIALS.occupiedCell; // Şimdilik normal dolu rengi, istenirse farklılaştırılabilir
+            // Örneğin: frameMaterial = new THREE.LineBasicMaterial({ color: 0xffa500, ... }); // Turuncu
+        } else if (usedCapacity >= 2) { // Tam dolu
+            frameMaterial = new THREE.LineBasicMaterial({ color: 0xdc3545, transparent: true, opacity: 0.8 }); // Kırmızı
         }
 
-        // Hücre verilerini sakla
+        // Hücre çerçevesi (yeni materyal ile)
+        const edges = new THREE.EdgesGeometry(cellGeometry);
+        const frame = new THREE.LineSegments(edges, frameMaterial);
+        cell.add(frame);
+
+        // Ürün kutularını ekle (varsa)
+        if (locationData?.pallets && locationData.pallets.length > 0) {
+            const innerCellWidth = cellWidth - SHELF_DIMENSIONS.spacing * 2; // İç genişlik
+
+            locationData.pallets.forEach((palletInfo, index) => {
+                if (palletInfo?.product) {
+                    const productMesh = createProduct(palletInfo.product); // createProduct artık palletType'ı içeriden alıyor
+                    
+                    if (productMesh) {
+                        const productPalletType = palletInfo.product.palletType?.trim().toLowerCase() || 'full';
+                        
+                        // Konumlandırma
+                        if (productPalletType === 'half') {
+                            // İlk yarım sola (-x), ikinci yarım sağa (+x)
+                            productMesh.position.x = (index === 0) ? -innerCellWidth / 4 : innerCellWidth / 4;
+                        } else {
+                            // Tam palet ortada
+                            productMesh.position.x = 0;
+                        }
+                        // Y ve Z merkezde kalabilir
+                        cell.add(productMesh);
+                    }
+                }
+            });
+        }
+
+        // userData'yı güncelle (tüm locationData ile)
+        console.log(`[createCell] Storing userData for R${rackNumber}-${level}-${position}`); 
         cell.userData = {
             type: 'cell',
             rackNumber,
             level,
             position,
-            locationData
+            locationData // Tüm locationData (hesaplanmış kapasite ve pallets dahil)
         };
 
         return cell;
     };
 
-    // Ürün oluşturma
+    // Ürün oluşturma (Palet tipine göre boyut ve Kategoriye göre renk ile)
     const createProduct = (productData) => {
         if (!productData) return null;
 
-        try {
-            // Ürün boyutlarını al (cm'den m'ye çevir)
-            const width = (parseFloat(productData.width) || 30) / 100;
-            const height = (parseFloat(productData.height) || 30) / 100;
-            const depth = (parseFloat(productData.length) || 30) / 100;
+        const palletType = productData.palletType?.trim().toLowerCase() || 'full';
+        const categoryName = productData.Category?.name || t('unknownCategory');
+        console.log(`[createProduct] Creating product mesh for ID: ${productData.id}, PalletType: ${palletType}, Category: ${categoryName}`);
 
-            // Ürün rengini belirle
-            let color;
-            switch(productData.categoryId) {
-                case 1: color = 0x2196f3; break; // Elektronik - Mavi
-                case 2: color = 0x4caf50; break; // Beyaz Eşya - Yeşil
-                case 3: color = 0x795548; break; // Mobilya - Kahverengi
-                case 4: color = 0x9c27b0; break; // Tekstil - Mor
-                default: color = 0xff5722;       // Varsayılan - Turuncu
+        try {
+            const cellInnerWidth = SHELF_DIMENSIONS.width / 4 - SHELF_DIMENSIONS.spacing * 2;
+            const cellInnerHeight = SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing * 2;
+            const cellInnerDepth = SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing * 2;
+
+            const productWidth = palletType === 'half' ? cellInnerWidth / 2 : cellInnerWidth;
+            const productHeight = cellInnerHeight;
+            const productDepth = cellInnerDepth;
+
+            const productGeometry = new THREE.BoxGeometry(productWidth, productHeight, productDepth);
+
+            // Kategoriye göre renk belirle
+            let productBaseColor = 0xffa500; // Varsayılan Turuncu
+            switch (categoryName) {
+                case 'Elektronik': productBaseColor = 0x87ceeb; break; // Açık Mavi
+                case 'Gıda': productBaseColor = 0x90ee90; break; // Açık Yeşil
+                case 'Kozmetik': productBaseColor = 0xffb6c1; break; // Açık Pembe
+                case 'Kitap': productBaseColor = 0xffdab9; break; // Şeftali
+                case 'Giyim': productBaseColor = 0xe6e6fa; break; // Lavanta
+                case 'Spor': productBaseColor = 0xffa07a; break; // Açık Somon
+                case 'Ev & Yaşam': productBaseColor = 0xf5f5dc; break; // Bej
+                case 'Oyuncak': productBaseColor = 0xffff00; break; // Sarı
+                case 'Ofis': productBaseColor = 0xd3d3d3; break; // Açık Gri
+                case 'Bahçe': productBaseColor = 0x228b22; break; // Orman Yeşili
+                default: productBaseColor = 0xa9a9a9; // Varsayılan Koyu Gri
             }
 
-            // Ürün materyali
-            const material = new THREE.MeshPhongMaterial({
-                color: color,
-                shininess: 30,
-                transparent: true,
-                opacity: 0.9
+            // Ürün materyali (Kategori rengi ile)
+            const productMaterial = new THREE.MeshLambertMaterial({
+                color: productBaseColor,
+                opacity: 0.85,
+                transparent: true
             });
 
-            // Ürün geometrisi
-            const geometry = new THREE.BoxGeometry(
-                Math.min(width, SHELF_DIMENSIONS.width/4 - SHELF_DIMENSIONS.spacing * 2),
-                Math.min(height, SHELF_DIMENSIONS.height - SHELF_DIMENSIONS.spacing * 2),
-                Math.min(depth, SHELF_DIMENSIONS.depth - SHELF_DIMENSIONS.spacing * 2)
-            );
-
-            const product = new THREE.Mesh(geometry, material);
+            const productMesh = new THREE.Mesh(productGeometry, productMaterial);
             
-            // Ürün etiketini ekle
-            const label = createLabel(productData.name);
-            label.position.y = height/2 + 0.1;
-            product.add(label);
-
-            // Ürün verilerini sakla
-            product.userData = {
+            productMesh.userData = {
                 type: 'product',
-                productData
+                ...productData // Kategori bilgisi dahil
             };
 
-            return product;
+            console.log(`[createProduct] Mesh created for ID: ${productData.id}, Color: #${productBaseColor.toString(16)}`);
+
+            // Ürün etiketini oluştur
+            const label = createLabel(productData.name);
+            label.position.y = productHeight / 2 + 0.1; // Kutunun biraz üstüne
+            productMesh.add(label);
+
+            return productMesh;
+
         } catch (error) {
-            console.error('Ürün oluşturma hatası:', error);
+            console.error("[createProduct] Error creating product mesh:", error, "ProductData:", productData);
             return null;
         }
     };
@@ -326,7 +363,6 @@ const WarehouseView3D = () => {
 
         // Event listeners
         window.addEventListener('resize', handleResize);
-        mountRef.current.addEventListener('mousedown', handleMouseClick);
         
         // Animation loop
         const animate = () => {
@@ -344,13 +380,12 @@ const WarehouseView3D = () => {
         animate();
 
         // Fetch data and render racks
-        setSelectedRack(1);
+        handleRackSelect(1);
         
         // Cleanup
         return () => {
             window.removeEventListener('resize', handleResize);
             if (mountRef.current && rendererRef.current) {
-                mountRef.current.removeEventListener('mousedown', handleMouseClick);
                 mountRef.current.removeChild(rendererRef.current.domElement);
             }
             
@@ -380,41 +415,6 @@ const WarehouseView3D = () => {
         };
     }, [isDark]);
 
-    // Tıklama olayları
-    useEffect(() => {
-        if (!sceneRef.current || !cameraRef.current) return;
-
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        const handleClick = (event) => {
-            const canvas = rendererRef.current.domElement;
-            const rect = canvas.getBoundingClientRect();
-            
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, cameraRef.current);
-            const intersects = raycaster.intersectObjects(sceneRef.current.children, true);
-
-            if (intersects.length > 0) {
-                let object = intersects[0].object;
-                while (object && !object.userData?.type) {
-                    object = object.parent;
-                }
-
-                if (object?.userData?.type === 'cell') {
-                    setSelectedCell(object.userData);
-                    setIsModalOpen(true);
-                }
-            }
-        };
-
-        const container = mountRef.current;
-        container.addEventListener('click', handleClick);
-        return () => container.removeEventListener('click', handleClick);
-    }, []);
-
     // Window resize olayı
     const handleResize = () => {
         if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
@@ -425,11 +425,6 @@ const WarehouseView3D = () => {
         cameraRef.current.aspect = width / height;
         cameraRef.current.updateProjectionMatrix();
         rendererRef.current.setSize(width, height);
-    };
-
-    // Handle mouse click
-    const handleMouseClick = (event) => {
-        // code for mouse click...
     };
 
     // Ant Design tema konfigürasyonu
@@ -467,7 +462,7 @@ const WarehouseView3D = () => {
                 }}>
                     <Select
                         style={{ width: 150 }}
-                        placeholder="Raf Seç"
+                        placeholder={t('selectRack')}
                         onChange={handleRackSelect}
                         value={selectedRack}
                         className={isDark ? 'dark-select' : ''}
@@ -498,18 +493,17 @@ const WarehouseView3D = () => {
                     <Button 
                         type="primary" 
                         icon={<PlusOutlined />}
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={() => setIsMgmtModalOpen(true)}
                     >
-                        Yeni Ürün Ekle
+                        {t('manageWarehouse')}
                     </Button>
                 </div>
-                <WarehouseProductModal
-                    visible={isModalOpen}
-                    onCancel={() => {
-                        setIsModalOpen(false);
-                        setSelectedCell(null);
-                    }}
-                    cellData={selectedCell}
+                <WarehouseManagementModal
+                    visible={isMgmtModalOpen}
+                    onCancel={() => setIsMgmtModalOpen(false)}
+                    selectedRack={selectedRack}
+                    onRackUpdate={handleRackSelect}
+                    rackLocations={rackLocations}
                 />
             </div>
         </ConfigProvider>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Typography, Space, Button, DatePicker, Select, Row, Col, Card, Statistic, Spin, Input } from 'antd';
+import { Table, Typography, Space, Button, DatePicker, Select, Row, Col, Card, Statistic, Spin, Input, ConfigProvider, theme as antTheme } from 'antd';
 import { DownloadOutlined, ReloadOutlined, ArrowUpOutlined, ArrowDownOutlined, PrinterOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -12,6 +12,7 @@ import StockMovementModal from '../components/StockMovementModal';
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { Search } = Input;
 
 const StockMovements = () => {
     // Context hooks
@@ -296,7 +297,7 @@ const StockMovements = () => {
     // Tablo sütunları
     const columns = [
         {
-            title: 'Tarih',
+            title: t('date'),
             dataIndex: 'createdAt',
             key: 'createdAt',
             render: (date) => new Date(date).toLocaleString('tr-TR'),
@@ -304,7 +305,7 @@ const StockMovements = () => {
             defaultSortOrder: 'descend'
         },
         {
-            title: 'İşlem Tipi',
+            title: t('movementType'),
             dataIndex: 'type',
             key: 'type',
             render: (type) => {
@@ -314,19 +315,19 @@ const StockMovements = () => {
                         color: isIncoming ? '#52c41a' : '#f5222d',
                         fontWeight: 'bold'
                     }}>
-                        {isIncoming ? 'Giriş' : 'Çıkış'}
+                        {isIncoming ? t('movementIn') : t('movementOut')}
                     </span>
                 );
             }
         },
         {
-            title: 'Ürün',
+            title: t('product'),
             dataIndex: ['Product', 'name'],
             key: 'product',
             render: (text) => <Text strong style={{ color: isDark ? '#e5e7eb' : undefined }}>{text}</Text>
         },
         {
-            title: 'Miktar',
+            title: t('quantity'),
             dataIndex: 'quantity',
             key: 'quantity',
             render: (quantity, record) => {
@@ -339,245 +340,251 @@ const StockMovements = () => {
             sorter: (a, b) => a.quantity - b.quantity
         },
         {
-            title: 'Lokasyon',
+            title: t('location'),
             dataIndex: ['Location', 'code'],
             key: 'location',
             render: (text, record) => record.Location ? 
-                `${record.Location.code} - Raf ${record.Location.rackNumber}, Seviye ${record.Location.level}` : '-'
+                `${record.Location.code} - ${t('rackPrefix')} ${record.Location.rackNumber}, ${t('levelPrefix')} ${record.Location.level}` : '-'
         },
         {
-            title: 'Açıklama',
+            title: t('description'),
             dataIndex: 'description',
             key: 'description',
             render: (text) => <Text type="secondary" style={{ color: isDark ? '#9ca3af' : undefined }}>{text}</Text>
         }
     ];
     
+    // Ant Design tema yapılandırması
+    const antdThemeConfig = {
+        algorithm: isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
+    };
+    
     return (
-        <div style={{ padding: '20px' }}>
-            <div style={{ marginBottom: 24 }}>
-                <Row gutter={[16, 16]} align="middle" justify="space-between">
-                    <Col xs={24} lg={16}>
-                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                            <Title level={2} style={{ margin: 0, color: isDark ? '#f3f4f6' : undefined }}>
-                                Stok Hareketleri
-                            </Title>
-                            <Text type="secondary" style={{ color: isDark ? '#9ca3af' : undefined }}>
-                                Stok giriş-çıkış hareketlerini takip edin
+        <ConfigProvider theme={antdThemeConfig}>
+            <div className={`p-6 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+                <Title level={2} className={`${isDark ? 'text-white' : 'text-black'}`}>{t('stockMovements')}</Title>
+                
+                <div style={{ marginBottom: 24 }}>
+                    <Row gutter={[16, 16]} align="middle" justify="space-between">
+                        <Col xs={24} lg={16}>
+                            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                <Text type="secondary" style={{ color: isDark ? '#9ca3af' : undefined }}>
+                                    {t('trackStockMovementsDescription')}
+                                </Text>
+                            </Space>
+                        </Col>
+                        <Col xs={24} lg={8} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <Space>
+                                <Button 
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => setShowModal(true)}
+                                >
+                                    {t('newMovement')}
+                                </Button>
+                                <Button 
+                                    icon={<ReloadOutlined />} 
+                                    onClick={fetchMovements}
+                                >
+                                    {t('refresh')}
+                                </Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </div>
+                
+                {/* İstatistik kartları */}
+                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                    <Col xs={24} sm={8}>
+                        <Card style={{ 
+                            backgroundColor: isDark ? '#1f2937' : '#fff',
+                            borderColor: isDark ? '#374151' : undefined
+                        }}>
+                            <Statistic 
+                                title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>{t('totalIn')}</Text>}
+                                value={stats.totalIn} 
+                                valueStyle={{ color: isDark ? '#10b981' : '#52c41a' }}
+                                prefix={<ArrowUpOutlined />}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card style={{ 
+                            backgroundColor: isDark ? '#1f2937' : '#fff',
+                            borderColor: isDark ? '#374151' : undefined
+                        }}>
+                            <Statistic 
+                                title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>{t('totalOut')}</Text>}
+                                value={stats.totalOut} 
+                                valueStyle={{ color: isDark ? '#ef4444' : '#f5222d' }}
+                                prefix={<ArrowDownOutlined />}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card style={{ 
+                            backgroundColor: isDark ? '#1f2937' : '#fff',
+                            borderColor: isDark ? '#374151' : undefined
+                        }}>
+                            <Statistic 
+                                title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>{t('netChange')}</Text>}
+                                value={stats.totalIn - stats.totalOut} 
+                                valueStyle={{ 
+                                    color: stats.totalIn - stats.totalOut >= 0 
+                                        ? (isDark ? '#10b981' : '#52c41a') 
+                                        : (isDark ? '#ef4444' : '#f5222d') 
+                                }}
+                                prefix={stats.totalIn - stats.totalOut >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                            />
+                        </Card>
+                    </Col>
+                </Row>
+                
+                {/* Filtreler */}
+                <Card 
+                    style={{ 
+                        marginBottom: 24,
+                        backgroundColor: isDark ? '#1f2937' : '#fff',
+                        borderColor: isDark ? '#374151' : undefined
+                    }}
+                >
+                    <Row gutter={[16, 16]}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
+                                {t('movementTypeFilter')}
                             </Text>
-                        </Space>
-                    </Col>
-                    <Col xs={24} lg={8} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Space>
-                            <Button 
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() => setShowModal(true)}
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.type}
+                                onChange={(value) => handleFilterChange('type', value)}
+                                dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
                             >
-                                Yeni Hareket
-                            </Button>
-                            <Button 
-                                icon={<ReloadOutlined />} 
-                                onClick={fetchMovements}
+                                <Option value="all">{t('all')}</Option>
+                                <Option value="IN">{t('movementIn')}</Option>
+                                <Option value="OUT">{t('movementOut')}</Option>
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
+                                {t('productFilter')}
+                            </Text>
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.productId}
+                                onChange={(value) => handleFilterChange('productId', value)}
+                                showSearch
+                                optionFilterProp="children"
+                                dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
                             >
-                                Yenile
-                            </Button>
-                        </Space>
-                    </Col>
-                </Row>
-            </div>
-            
-            {/* İstatistik kartları */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={8}>
-                    <Card style={{ 
+                                <Option value="all">{t('allProducts')}</Option>
+                                {products.map(product => (
+                                    <Option key={product.id} value={product.id}>{product.name}</Option>
+                                ))}
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
+                                {t('locationFilter')}
+                            </Text>
+                            <Select
+                                style={{ width: '100%' }}
+                                value={filters.locationId}
+                                onChange={(value) => handleFilterChange('locationId', value)}
+                                showSearch
+                                optionFilterProp="children"
+                                dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
+                            >
+                                <Option value="all">{t('allLocations')}</Option>
+                                {locations.map(location => (
+                                    <Option key={location.id} value={location.id}>
+                                        {location.code} (R:{location.rackNumber}, S:{location.level})
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
+                                {t('dateRangeFilter')}
+                            </Text>
+                            <RangePicker 
+                                style={{ width: '100%' }}
+                                value={filters.dateRange}
+                                onChange={(dates) => handleFilterChange('dateRange', dates)}
+                                format="DD/MM/YYYY"
+                            />
+                        </Col>
+                    </Row>
+                    <Row style={{ marginTop: 16 }}>
+                        <Col xs={24}>
+                            <Input 
+                                placeholder={t('searchByProductOrDesc')}
+                                prefix={<SearchOutlined />}
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{ 
+                                    backgroundColor: isDark ? '#1f2937' : undefined,
+                                    borderColor: isDark ? '#374151' : undefined,
+                                    color: isDark ? '#f3f4f6' : undefined
+                                }}
+                            />
+                        </Col>
+                    </Row>
+                    <Row style={{ marginTop: 16 }}>
+                        <Col>
+                            <Space>
+                                <Button 
+                                    onClick={exportToExcel}
+                                    icon={<DownloadOutlined />}
+                                >
+                                    {t('exportToExcel')}
+                                </Button>
+                                <Button 
+                                    onClick={handlePrint}
+                                    icon={<PrinterOutlined />}
+                                >
+                                    {t('print')}
+                                </Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </Card>
+                
+                {/* Veri tablosu */}
+                <Card
+                    style={{ 
                         backgroundColor: isDark ? '#1f2937' : '#fff',
                         borderColor: isDark ? '#374151' : undefined
-                    }}>
-                        <Statistic 
-                            title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>Toplam Giriş</Text>}
-                            value={stats.totalIn} 
-                            valueStyle={{ color: isDark ? '#10b981' : '#52c41a' }}
-                            prefix={<ArrowUpOutlined />}
+                    }}
+                >
+                    <Spin spinning={loading}>
+                        <Table 
+                            columns={columns} 
+                            dataSource={filteredMovements}
+                            rowClassName={isDark ? 'dark-table-row' : ''}
+                            pagination={{ 
+                                pageSize: 10,
+                                showSizeChanger: true,
+                                pageSizeOptions: ['10', '20', '50'],
+                                showTotal: (total) => `${t('total')}: ${total} ${t('records')}`
+                            }} 
+                            rowKey="id"
                         />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={8}>
-                    <Card style={{ 
-                        backgroundColor: isDark ? '#1f2937' : '#fff',
-                        borderColor: isDark ? '#374151' : undefined
-                    }}>
-                        <Statistic 
-                            title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>Toplam Çıkış</Text>}
-                            value={stats.totalOut} 
-                            valueStyle={{ color: isDark ? '#ef4444' : '#f5222d' }}
-                            prefix={<ArrowDownOutlined />}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={8}>
-                    <Card style={{ 
-                        backgroundColor: isDark ? '#1f2937' : '#fff',
-                        borderColor: isDark ? '#374151' : undefined
-                    }}>
-                        <Statistic 
-                            title={<Text style={{ color: isDark ? '#9ca3af' : undefined }}>Net Değişim</Text>}
-                            value={stats.totalIn - stats.totalOut} 
-                            valueStyle={{ 
-                                color: stats.totalIn - stats.totalOut >= 0 
-                                    ? (isDark ? '#10b981' : '#52c41a') 
-                                    : (isDark ? '#ef4444' : '#f5222d') 
-                            }}
-                            prefix={stats.totalIn - stats.totalOut >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                        />
-                    </Card>
-                </Col>
-            </Row>
-            
-            {/* Filtreler */}
-            <Card 
-                style={{ 
-                    marginBottom: 24,
-                    backgroundColor: isDark ? '#1f2937' : '#fff',
-                    borderColor: isDark ? '#374151' : undefined
-                }}
-            >
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} sm={12} md={6}>
-                        <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
-                            İşlem Tipi:
-                        </Text>
-                        <Select
-                            style={{ width: '100%' }}
-                            value={filters.type}
-                            onChange={(value) => handleFilterChange('type', value)}
-                            dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
-                        >
-                            <Option value="all">Tümü</Option>
-                            <Option value="IN">Giriş</Option>
-                            <Option value="OUT">Çıkış</Option>
-                        </Select>
-                    </Col>
-                    <Col xs={24} sm={12} md={6}>
-                        <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
-                            Ürün:
-                        </Text>
-                        <Select
-                            style={{ width: '100%' }}
-                            value={filters.productId}
-                            onChange={(value) => handleFilterChange('productId', value)}
-                            showSearch
-                            optionFilterProp="children"
-                            dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
-                        >
-                            <Option value="all">Tüm Ürünler</Option>
-                            {products.map(product => (
-                                <Option key={product.id} value={product.id}>{product.name}</Option>
-                            ))}
-                        </Select>
-                    </Col>
-                    <Col xs={24} sm={12} md={6}>
-                        <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
-                            Lokasyon:
-                        </Text>
-                        <Select
-                            style={{ width: '100%' }}
-                            value={filters.locationId}
-                            onChange={(value) => handleFilterChange('locationId', value)}
-                            showSearch
-                            optionFilterProp="children"
-                            dropdownStyle={{ backgroundColor: isDark ? '#1f2937' : undefined }}
-                        >
-                            <Option value="all">Tüm Lokasyonlar</Option>
-                            {locations.map(location => (
-                                <Option key={location.id} value={location.id}>
-                                    {location.code} (R:{location.rackNumber}, S:{location.level})
-                                </Option>
-                            ))}
-                        </Select>
-                    </Col>
-                    <Col xs={24} sm={12} md={6}>
-                        <Text style={{ display: 'block', marginBottom: 8, color: isDark ? '#d1d5db' : undefined }}>
-                            Tarih Aralığı:
-                        </Text>
-                        <RangePicker 
-                            style={{ width: '100%' }}
-                            value={filters.dateRange}
-                            onChange={(dates) => handleFilterChange('dateRange', dates)}
-                            format="DD/MM/YYYY"
-                        />
-                    </Col>
-                </Row>
-                <Row style={{ marginTop: 16 }}>
-                    <Col xs={24}>
-                        <Input 
-                            placeholder="Ürün adı veya açıklama ile ara"
-                            prefix={<SearchOutlined />}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            style={{ 
-                                backgroundColor: isDark ? '#1f2937' : undefined,
-                                borderColor: isDark ? '#374151' : undefined,
-                                color: isDark ? '#f3f4f6' : undefined
-                            }}
-                        />
-                    </Col>
-                </Row>
-                <Row style={{ marginTop: 16 }}>
-                    <Col>
-                        <Space>
-                            <Button 
-                                onClick={exportToExcel}
-                                icon={<DownloadOutlined />}
-                            >
-                                Excel'e Aktar
-                            </Button>
-                            <Button 
-                                onClick={handlePrint}
-                                icon={<PrinterOutlined />}
-                            >
-                                Yazdır
-                            </Button>
-                        </Space>
-                    </Col>
-                </Row>
-            </Card>
-            
-            {/* Veri tablosu */}
-            <Card
-                style={{ 
-                    backgroundColor: isDark ? '#1f2937' : '#fff',
-                    borderColor: isDark ? '#374151' : undefined
-                }}
-            >
-                <Spin spinning={loading}>
-                    <Table 
-                        columns={columns} 
-                        dataSource={filteredMovements}
-                        rowClassName={isDark ? 'dark-table-row' : ''}
-                        pagination={{ 
-                            pageSize: 10,
-                            showSizeChanger: true,
-                            pageSizeOptions: ['10', '20', '50'],
-                            showTotal: (total) => `Toplam: ${total} kayıt`
-                        }} 
-                        rowKey="id"
+                    </Spin>
+                </Card>
+                
+                {/* Stok Hareketi Ekle Modal */}
+                {showModal && (
+                    <StockMovementModal
+                        visible={showModal}
+                        onCancel={() => setShowModal(false)}
+                        onSubmit={handleAddMovement}
+                        products={products}
+                        locations={locations}
+                        isDark={isDark}
                     />
-                </Spin>
-            </Card>
-            
-            {/* Stok Hareketi Ekle Modal */}
-            {showModal && (
-                <StockMovementModal
-                    visible={showModal}
-                    onCancel={() => setShowModal(false)}
-                    onSubmit={handleAddMovement}
-                    products={products}
-                    locations={locations}
-                    isDark={isDark}
-                />
-            )}
-        </div>
+                )}
+            </div>
+        </ConfigProvider>
     );
 };
 

@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { DashboardOutlined, UserOutlined, ShopOutlined, InboxOutlined, EnvironmentOutlined, BoxPlotOutlined } from '@ant-design/icons';
+import { DashboardOutlined, UserOutlined, ShopOutlined, InboxOutlined, EnvironmentOutlined, BoxPlotOutlined, MessageOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { FloatButton, Drawer } from 'antd';
+import DSSChatbot from './DSSChatbot';
 
 const Layout = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
 
   const menuItems = [
     {
@@ -58,17 +61,41 @@ const Layout = () => {
   });
 
   return (
-    <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+    <div className="min-h-screen flex flex-col">
       <Navbar />
       <div className="flex flex-1">
         <div className="w-64 h-full">
           <Sidebar />
         </div>
-        <main className="flex-1 overflow-x-hidden p-6">
+        <main className={`flex-1 overflow-x-hidden p-6 ${theme === 'dark' ? 'bg-gray-800 text-gray-200' : 'bg-gray-50 text-gray-800'}`}>
           <Outlet />
         </main>
       </div>
       <Footer />
+
+      {/* Karar Destek Chatbot Butonu ve Drawer'ı */}
+      {user && ( // Sadece kullanıcı giriş yaptıysa göster
+        <>
+          <FloatButton 
+            icon={<MessageOutlined />} 
+            tooltip="Karar Destek Asistanı" 
+            type="primary" 
+            style={{ right: 24, bottom: 100 }} // Konumlandırma (Footer'ı hesaba kat)
+            onClick={() => setIsChatDrawerOpen(true)} 
+          />
+          <Drawer
+            title="Karar Destek Asistanı"
+            placement="right"
+            onClose={() => setIsChatDrawerOpen(false)}
+            open={isChatDrawerOpen}
+            width={450} // Drawer genişliği
+            bodyStyle={{ padding: 0 }} // Chatbot kendi padding'ini yönetebilir
+            // Drawer'ın theme uyumu için gerekirse className ekleyebiliriz
+          >
+            <DSSChatbot />
+          </Drawer>
+        </>
+      )}
     </div>
   );
 };
